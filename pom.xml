@@ -6,13 +6,13 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.zalando.nakadi-lib</groupId>
-    <artifactId>nakadi-lib</artifactId>
+    <groupId>org.zalando.rx-nakadi</groupId>
+    <artifactId>rx-nakadi</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
-    <name>Nakadi lib</name>
-    <description>A toolbox for using nakadi.</description>
-    <url>https://github.com/zalando-incubator/nakadi-lib</url>
+    <name>Rx Nakadi</name>
+    <description>A toolbox for using Nakadi.</description>
+    <url>https://github.com/zalando-incubator/RxNakadi</url>
 
     <organization>
         <name>Zalando SE</name>
@@ -20,8 +20,8 @@
     </organization>
 
     <scm>
-        <url>https://github.com/zalando-incubator/nakadi-lib</url>
-        <connection>https://github.com/zalando-incubator/nakadi-lib.git</connection>
+        <url>https://github.com/zalando-incubator/RxNakadi</url>
+        <connection>https://github.com/zalando-incubator/RxNakadi.git</connection>
     </scm>
 
     <licenses>

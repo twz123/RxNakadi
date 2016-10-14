@@ -12,7 +12,7 @@ before_script:
   - pip install --user codecov
 
 script:
-  - ./mvnw clean verify
+  - mvn clean verify
 
 # https://github.com/travis-ci/travis-ci/issues/3259
 addons:
