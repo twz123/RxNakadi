@@ -23,8 +23,8 @@ import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 
 import org.zalando.nakadilib.domain.NakadiEvent;
 import org.zalando.nakadilib.domain.PublishingProblem;
-import org.zalando.undertaking.oauth2.AccessToken;
-import org.zalando.undertaking.utils.FixedAttemptsStrategy;
+import org.zalando.nakadilib.oauth2.AccessToken;
+import org.zalando.nakadilib.utils.FixedAttemptsStrategy;
 
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
@@ -32,14 +32,11 @@ import com.google.common.net.MediaType;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import com.netflix.hystrix.HystrixCommandGroupKey;
-import com.netflix.hystrix.HystrixCommandKey;
-import com.netflix.hystrix.HystrixCommandProperties;
-import com.netflix.hystrix.HystrixObservableCommand;
+import com.netflix.hystrix.*;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
 import com.netflix.hystrix.exception.HystrixRuntimeException;
 
-import io.undertow.util.StatusCodes;
+import io.netty.handler.codec.http.HttpResponseStatus;
 
 import rx.Completable;
 import rx.Observable;
@@ -77,7 +74,7 @@ public final class NakadiPublisher {
     }
 
     public <E extends NakadiEvent> Completable publishEvents(final URI nakadiUrl, final EventType eventType,
-                                                             final List<E> events) {
+            final List<E> events) {
         requireNonNull(events);
 
         final byte[] payload;
@@ -126,18 +123,18 @@ public final class NakadiPublisher {
 
     private <T> Observable<T> validateResponse(final EventType eventType, final Response response) {
         final int statusCode = response.getStatusCode();
-        if (statusCode == StatusCodes.OK) {
+        if (statusCode == HttpResponseStatus.OK.code()) {
             return Observable.empty();
         }
 
         final RuntimeException error;
 
-        if (statusCode == StatusCodes.UNPROCESSABLE_ENTITY) {
+        if (statusCode == HttpResponseStatus.UNPROCESSABLE_ENTITY.code()) {
             error = new NakadiPublishingException(eventType,
                     gson.fromJson(response.getResponseBody(), PUBLISHING_PROBLEM_LIST));
         } else {
             error = new UnsupportedOperationException( //
-                    "Unsupported status code: " + statusCode + ": " + response.getResponseBody());
+                    String.format("Unsupported status code: %d: %s", statusCode, response.getResponseBody()));
         }
 
         if (statusCode < 400 || statusCode > 499) {

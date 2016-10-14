@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.zalando.nakadilib.domain.Cursor;
 import org.zalando.nakadilib.domain.EventBatch;
 import org.zalando.nakadilib.domain.NakadiEvent;
-import org.zalando.undertaking.oauth2.AccessToken;
+import org.zalando.nakadilib.oauth2.AccessToken;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;
@@ -100,8 +100,8 @@ public class NakadiStreamProvider {
     }
 
     public <E extends NakadiEvent> Observable<List<E>> streamFor(final URI nakadiUrl, final String owningApplication,
-                                                                 final EventType eventType, final String consumerGroup, final TypeToken<E> eventClass,
-                                                                 final long commitDelayMillis) {
+            final EventType eventType, final String consumerGroup, final TypeToken<E> eventClass,
+            final long commitDelayMillis) {
         return streamFor(new StreamContext<>(nakadiUrl, owningApplication, eventType, consumerGroup, eventClass,
                     commitDelayMillis));
     }

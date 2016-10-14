@@ -4,6 +4,8 @@ import static java.util.Objects.requireNonNull;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 
+import static io.netty.handler.codec.http.HttpResponseStatus.OK;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +23,9 @@ import org.asynchttpclient.HttpResponseStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.zalando.nakadilib.domain.EventBatch;
+import org.zalando.nakadilib.domain.NakadiEvent;
+
 import com.google.common.net.MediaType;
 
 import com.google.gson.Gson;
@@ -28,10 +33,6 @@ import com.google.gson.JsonSyntaxException;
 
 import io.netty.handler.codec.http.HttpHeaders;
 
-import io.undertow.util.StatusCodes;
-
-import org.zalando.nakadilib.domain.EventBatch;
-import org.zalando.nakadilib.domain.NakadiEvent;
 import rx.Single;
 import rx.Subscriber;
 
@@ -161,7 +162,7 @@ final class EventStreamHandler<E extends NakadiEvent> implements AsyncHandler<Ev
             return State.ABORT;
         }
 
-        if (responseStatus.getStatusCode() != StatusCodes.OK) {
+        if (responseStatus.getStatusCode() != OK.code()) {
             return abort(new IllegalStateException(
                         "Unexpected status code " + responseStatus.getStatusText() + " received."));
         }

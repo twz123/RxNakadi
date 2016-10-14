@@ -6,6 +6,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.net.URI;
 
+import java.text.MessageFormat;
+
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
@@ -25,8 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import org.zalando.nakadilib.domain.Cursor;
 import org.zalando.nakadilib.http.resource.Problem;
-
-import org.zalando.undertaking.oauth2.AccessToken;
+import org.zalando.nakadilib.oauth2.AccessToken;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
@@ -39,7 +40,7 @@ import com.netflix.hystrix.HystrixCommandProperties;
 import com.netflix.hystrix.HystrixObservableCommand;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
 
-import io.undertow.util.StatusCodes;
+import io.netty.handler.codec.http.HttpResponseStatus;
 
 import rx.Observable;
 import rx.Single;
@@ -64,6 +65,13 @@ final class CursorCommitter {
     private final AsyncHttpClient httpClient;
     private final Single<AccessToken> accessToken;
     private final Gson gson;
+    public static final Set<Integer> SUCCESS_CODES = new ImmutableSet.Builder<Integer>().add(HttpResponseStatus.OK
+                .code()).add(HttpResponseStatus.NO_CONTENT.code()).build();
+    public static final Set<Integer> ERROR_CODES = new ImmutableSet.Builder<Integer>().add(
+                                                                                          HttpResponseStatus.BAD_REQUEST
+                                                                                                  .code())
+                                                                                      .add(HttpResponseStatus.NOT_FOUND
+                .code()).add(HttpResponseStatus.UNPROCESSABLE_ENTITY.code()).build();
 
     @Inject
     public CursorCommitter(final AsyncHttpClient httpClient, final Single<AccessToken> accessToken, final Gson gson) {
@@ -127,23 +135,17 @@ final class CursorCommitter {
 
     private Observable<CommitResult> parseResponse(final Response response) {
         final int statusCode = response.getStatusCode();
+        if (SUCCESS_CODES.contains(statusCode)) {
+            return Observable.just(gson.fromJson(response.getResponseBody(), CommitResult.class));
+        }
 
-        switch (statusCode) {
-
-            case StatusCodes.OK :
-            case StatusCodes.NO_CONTENT :
-                return Observable.just(gson.fromJson(response.getResponseBody(), CommitResult.class));
-
-            case StatusCodes.BAD_REQUEST :
-            case StatusCodes.NOT_FOUND :
-            case StatusCodes.UNPROCESSABLE_ENTITY :
-
-                final Problem problem = gson.fromJson(response.getResponseBody(), Problem.class);
-                return Observable.error(new HystrixBadRequestException(problem.getDetail()));
+        if (ERROR_CODES.contains(statusCode)) {
+            final Problem problem = gson.fromJson(response.getResponseBody(), Problem.class);
+            return Observable.error(new HystrixBadRequestException(problem.getDetail()));
         }
 
         return Observable.error(new UnsupportedOperationException(
-                    "Unsupported status code: " + statusCode + ": " + response.getResponseBody()));
+                    MessageFormat.format("Unsupported status code: {0}: {1}", statusCode, response.getResponseBody())));
     }
 
     private BoundRequestBuilder buildRequest(final URI nakadiUrl, final AccessToken token, final String sessionId,
@@ -182,13 +184,13 @@ final class CursorCommitter {
         /**
          * Cursor was successfully committed.
          */
-        static String RESULT_SUCCESS = "committed";
+        static final String RESULT_SUCCESS = "committed";
 
         /**
          * There already was more recent (or the same) cursor committed, so the current one was not committed as it is
          * outdated.
          */
-        static String RESULT_OUTDATED = "outdated";
+        static final String RESULT_OUTDATED = "outdated";
 
         private Cursor cursor;
 
