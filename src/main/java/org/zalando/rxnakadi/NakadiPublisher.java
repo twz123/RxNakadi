@@ -1,17 +1,14 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import static java.util.Objects.requireNonNull;
-
-import static com.google.common.base.MoreObjects.firstNonNull;
 
 import java.lang.reflect.Type;
 
 import java.net.URI;
 
 import java.util.List;
-import java.util.concurrent.RejectedExecutionException;
 
 import javax.inject.Inject;
 
@@ -21,10 +18,10 @@ import org.asynchttpclient.Response;
 
 import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 
-import org.zalando.nakadilib.domain.NakadiEvent;
-import org.zalando.nakadilib.domain.PublishingProblem;
-import org.zalando.nakadilib.oauth2.AccessToken;
-import org.zalando.nakadilib.utils.FixedAttemptsStrategy;
+import org.zalando.rxnakadi.domain.NakadiEvent;
+import org.zalando.rxnakadi.domain.PublishingProblem;
+import org.zalando.rxnakadi.hystrix.HystrixCommands;
+import org.zalando.rxnakadi.oauth2.AccessToken;
 
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
@@ -32,9 +29,11 @@ import com.google.common.net.MediaType;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import com.netflix.hystrix.*;
+import com.netflix.hystrix.HystrixCommandGroupKey;
+import com.netflix.hystrix.HystrixCommandKey;
+import com.netflix.hystrix.HystrixCommandProperties;
+import com.netflix.hystrix.HystrixObservableCommand;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
-import com.netflix.hystrix.exception.HystrixRuntimeException;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 
@@ -85,30 +84,29 @@ public final class NakadiPublisher {
             return Completable.error(t);
         }
 
-        final Observable<Void> publishResult =                                                                  //
-            accessToken.flatMapObservable(token ->
-                               toResponseObservable(nakadiUrl, eventType, token, payload))                      //
-                       .retry((attempt, error) ->
-                               new FixedAttemptsStrategy(3).shouldBeRetried(attempt, error))                    //
-                       .onErrorResumeNext(error -> Observable.error(unwrapError(error)));
+        final Single<Response> publishResult =                                           //
+            accessToken.map(token -> buildRequest(nakadiUrl, eventType, token, payload)) //
+                       .flatMap(requestBuilder ->
+                               HystrixCommands.withRetries(() -> {
+                                       return createHystrixObservable(requestBuilder, eventType);
+                                   },
+                                   3));
 
-        final AsyncSubject<Void> subject = AsyncSubject.create();
+        final AsyncSubject<Response> subject = AsyncSubject.create();
         publishResult.subscribe(subject);
         return subject.toCompletable();
     }
 
-    private Observable<Void> toResponseObservable(final URI nakadiUrl, final EventType eventType,
-            final AccessToken token, final byte[] payload) {
-        final BoundRequestBuilder requestBuilder = buildRequest(nakadiUrl, eventType, token, payload);
-        return Observable.defer(() ->
-                    new HystrixObservableCommand<Void>(SETTER) {
-                        @Override
-                        protected Observable<Void> construct() {
-                            return AsyncHttpSingle.create(requestBuilder) //
-                                                  .flatMapObservable(response ->
-                                                          validateResponse(eventType, response));
-                        }
-                    }.toObservable());
+    private HystrixObservableCommand<Response> createHystrixObservable(final BoundRequestBuilder requestBuilder,
+            final EventType eventType) {
+        return new HystrixObservableCommand<Response>(SETTER) {
+            @Override
+            protected Observable<Response> construct() {
+                return AsyncHttpSingle.create(requestBuilder) //
+                                      .flatMapObservable(response ->
+                                              validateResponse(eventType, response));
+            }
+        };
     }
 
     private BoundRequestBuilder buildRequest(final URI nakadiUrl, final EventType eventType,
@@ -121,10 +119,10 @@ public final class NakadiPublisher {
                   .setBody(payload);
     }
 
-    private <T> Observable<T> validateResponse(final EventType eventType, final Response response) {
+    private Observable<Response> validateResponse(final EventType eventType, final Response response) {
         final int statusCode = response.getStatusCode();
         if (statusCode == HttpResponseStatus.OK.code()) {
-            return Observable.empty();
+            return Observable.just(response);
         }
 
         final RuntimeException error;
@@ -142,27 +140,5 @@ public final class NakadiPublisher {
         }
 
         return Observable.error(new HystrixBadRequestException(error.getMessage(), error));
-    }
-
-    private static Throwable unwrapError(final Throwable error) {
-
-        if (error instanceof HystrixBadRequestException) {
-            return firstNonNull(error.getCause(), error);
-        } else if (error instanceof HystrixRuntimeException) {
-            final Throwable cause = firstNonNull(error.getCause(), error);
-            final HystrixRuntimeException.FailureType failureType = ((HystrixRuntimeException) error).getFailureType();
-
-            switch (failureType) {
-
-                case REJECTED_THREAD_EXECUTION :
-                case REJECTED_SEMAPHORE_EXECUTION :
-                case REJECTED_SEMAPHORE_FALLBACK :
-                    return new RejectedExecutionException(failureType.toString(), cause);
-            }
-
-            return cause;
-        }
-
-        return error;
     }
 }

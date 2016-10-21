@@ -1,4 +1,4 @@
-package org.zalando.nakadilib.domain;
+package org.zalando.rxnakadi.domain;
 
 import java.util.List;
 
@@ -6,15 +6,15 @@ import java.util.List;
  * @param  <E>  Nakadi event type contained in this batch
  */
 public class EventBatch<E> {
-    private Cursor cursor;
+    private Object cursor;
 
     private List<E> events;
 
-    public Cursor getCursor() {
+    public Object getCursor() {
         return cursor;
     }
 
-    public void setCursor(final Cursor cursor) {
+    public void setCursor(final Object cursor) {
         this.cursor = cursor;
     }
 

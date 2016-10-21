@@ -1,6 +1,6 @@
-### Nakadi lib
+### RxNakadi
 
-A collection of helpful classes to allow a convenient usage of Nakadi.
+Communicate with Nakadi in a reactive way using Async HTTP Client and RxJava.
 
 #### License
 

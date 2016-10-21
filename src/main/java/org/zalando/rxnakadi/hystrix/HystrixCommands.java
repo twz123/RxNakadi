@@ -1,4 +1,4 @@
-package org.zalando.nakadilib.hystrix;
+package org.zalando.rxnakadi.hystrix;
 
 import static java.util.Objects.requireNonNull;
 

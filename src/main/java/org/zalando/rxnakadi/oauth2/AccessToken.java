@@ -1,4 +1,4 @@
-package org.zalando.nakadilib.oauth2;
+package org.zalando.rxnakadi.oauth2;
 
 import static java.util.Objects.requireNonNull;
 

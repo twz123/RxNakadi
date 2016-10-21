@@ -1,4 +1,4 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
 import javax.inject.Qualifier;
 
 /**
- * Denotes bindings that are supposed to be internal to the problem package.
+ * Denotes bindings that are supposed to be internal.
  */
 @Documented
 @Qualifier

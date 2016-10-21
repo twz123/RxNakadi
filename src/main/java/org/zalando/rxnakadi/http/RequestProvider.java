@@ -1,4 +1,4 @@
-package org.zalando.nakadilib.http;
+package org.zalando.rxnakadi.http;
 
 import static java.util.Objects.requireNonNull;
 

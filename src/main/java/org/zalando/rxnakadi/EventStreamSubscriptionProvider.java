@@ -1,17 +1,14 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.util.Objects.requireNonNull;
-
-import static org.zalando.nakadilib.CursorCommitter.ERROR_CODES;
-import static org.zalando.nakadilib.CursorCommitter.SUCCESS_CODES;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 import java.net.URI;
 
 import java.text.MessageFormat;
+
 import java.util.Collections;
-import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -26,11 +23,11 @@ import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.zalando.nakadilib.http.RequestProvider;
-import org.zalando.nakadilib.http.resource.Problem;
-import org.zalando.nakadilib.hystrix.HystrixCommands;
-import org.zalando.nakadilib.oauth2.AccessToken;
-import org.zalando.nakadilib.utils.FixedAttemptsStrategy;
+import org.zalando.rxnakadi.http.RequestProvider;
+import org.zalando.rxnakadi.http.resource.Problem;
+import org.zalando.rxnakadi.hystrix.HystrixCommands;
+import org.zalando.rxnakadi.oauth2.AccessToken;
+import org.zalando.rxnakadi.utils.StatusCodes;
 
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
@@ -51,10 +48,10 @@ final class EventStreamSubscriptionProvider extends RequestProvider {
     private static final Logger LOG = LoggerFactory.getLogger(EventStreamSubscriptionProvider.class);
 
     private static final HystrixObservableCommand.Setter SETTER =
-        HystrixObservableCommand.Setter.withGroupKey(                                                              //
-                                           HystrixCommandGroupKey.Factory.asKey("nakadi"))                         //
+        HystrixObservableCommand.Setter.withGroupKey(                                                             //
+                                           HystrixCommandGroupKey.Factory.asKey("nakadi"))                        //
                                        .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()
-                                               .withExecutionTimeoutInMilliseconds(10000))                         //
+                                               .withExecutionTimeoutInMilliseconds(1000))                         //
                                        .andCommandKey(HystrixCommandKey.Factory.asKey("createSubscription"));
 
     private final Single<AccessToken> accessToken;
@@ -72,42 +69,41 @@ final class EventStreamSubscriptionProvider extends RequestProvider {
         final NakadiSubscription nakadiSubscription = //
             new NakadiSubscription(owningApplication, Collections.singleton(eventType), consumerGroup);
 
-        return accessToken.map(token -> buildRequest(nakadiUrl, token, nakadiSubscription))
-        .flatMap(requestBuilder ->
-              HystrixCommands.withRetries(() -> createHystrixObservable(requestBuilder),3)
-        );
+        return accessToken.map(token -> buildRequest(nakadiUrl, token, nakadiSubscription)).flatMap(requestBuilder ->
+                    HystrixCommands.withRetries(() -> { return createHystrixObservable(requestBuilder); }, 3));
     }
 
     private BoundRequestBuilder buildRequest(final URI nakadiUrl, final AccessToken token,
             final NakadiSubscription nakadiSubscription) {
         return
-                httpClient.preparePost(nakadiUrl + "/subscriptions")            //
-                .setHeader(HttpHeaders.ACCEPT, "application/json")              //
-                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")        //
-                .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.getValue()) //
-                .setBody(gson.toJson(nakadiSubscription));
+            httpClient.preparePost(nakadiUrl + "/subscriptions")                          //
+                      .setHeader(HttpHeaders.ACCEPT, "application/json")                  //
+                      .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")            //
+                      .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.getValue()) //
+                      .setBody(gson.toJson(nakadiSubscription));
     }
 
-    private HystrixObservableCommand<NakadiSubscription> createHystrixObservable(final BoundRequestBuilder requestBuilder) {
+    private HystrixObservableCommand<NakadiSubscription> createHystrixObservable(
+            final BoundRequestBuilder requestBuilder) {
         return new HystrixObservableCommand<NakadiSubscription>(SETTER) {
-                @Override
-                protected Observable<NakadiSubscription> construct() {
-                    return
-                        AsyncHttpSingle.create(requestBuilder)                                        //
-                                       .flatMap(EventStreamSubscriptionProvider.this::handleResponse) //
-                                       .toObservable();
-                }
-            };
+            @Override
+            protected Observable<NakadiSubscription> construct() {
+                return
+                    AsyncHttpSingle.create(requestBuilder)                                        //
+                                   .flatMap(EventStreamSubscriptionProvider.this::handleResponse) //
+                                   .toObservable();
+            }
+        };
     }
 
     private Single<NakadiSubscription> handleResponse(final Response response) {
         final int statusCode = response.getStatusCode();
 
-        if (SUCCESS_CODES.contains(statusCode)) {
+        if (StatusCodes.SUCCESS_CODES.contains(statusCode)) {
             return Single.just(gson.fromJson(response.getResponseBody(), NakadiSubscription.class));
         }
 
-        if (ERROR_CODES.contains(statusCode)) {
+        if (StatusCodes.ERROR_CODES.contains(statusCode)) {
             final Problem problem = gson.fromJson(response.getResponseBody(), Problem.class);
             if (Strings.isNullOrEmpty(problem.getDetail())) {
                 final JsonElement errorDescription = gson.fromJson(response.getResponseBody(), JsonObject.class).get(
@@ -121,7 +117,7 @@ final class EventStreamSubscriptionProvider extends RequestProvider {
         }
 
         return Single.error(new UnsupportedOperationException(
-                MessageFormat.format("Unsupported status code: {0}: {1}", statusCode, response.getResponseBody())));
+                    MessageFormat.format("Unsupported status code: {0}: {1}", statusCode, response.getResponseBody())));
     }
 
     private static Throwable unwrapError(final Throwable t) {

@@ -1,12 +1,10 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.util.Objects.requireNonNull;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.net.URI;
-
-import java.text.MessageFormat;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -25,9 +23,9 @@ import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.zalando.nakadilib.domain.Cursor;
-import org.zalando.nakadilib.http.resource.Problem;
-import org.zalando.nakadilib.oauth2.AccessToken;
+import org.zalando.rxnakadi.http.resource.Problem;
+import org.zalando.rxnakadi.oauth2.AccessToken;
+import org.zalando.rxnakadi.utils.StatusCodes;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
@@ -39,8 +37,6 @@ import com.netflix.hystrix.HystrixCommandKey;
 import com.netflix.hystrix.HystrixCommandProperties;
 import com.netflix.hystrix.HystrixObservableCommand;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
-
-import io.netty.handler.codec.http.HttpResponseStatus;
 
 import rx.Observable;
 import rx.Single;
@@ -55,33 +51,27 @@ final class CursorCommitter {
      */
     private static final Logger LOG = LoggerFactory.getLogger(CursorCommitter.class);
 
-    public static final HystrixObservableCommand.Setter SETTER =
-        HystrixObservableCommand.Setter.withGroupKey(                                                              //
-                                           HystrixCommandGroupKey.Factory.asKey("nakadi"))                         //
+    private static final HystrixObservableCommand.Setter SETTER =
+        HystrixObservableCommand.Setter.withGroupKey(                                                             //
+                                           HystrixCommandGroupKey.Factory.asKey("nakadi"))                        //
                                        .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()
-                                               .withExecutionTimeoutInMilliseconds(10000))                         //
+                                               .withExecutionTimeoutInMilliseconds(1000))                         //
                                        .andCommandKey(HystrixCommandKey.Factory.asKey("commitSubscription"));
 
     private final AsyncHttpClient httpClient;
     private final Single<AccessToken> accessToken;
     private final Gson gson;
-    public static final Set<Integer> SUCCESS_CODES = new ImmutableSet.Builder<Integer>().add(HttpResponseStatus.OK
-                .code()).add(HttpResponseStatus.NO_CONTENT.code()).build();
-    public static final Set<Integer> ERROR_CODES = new ImmutableSet.Builder<Integer>().add(
-                                                                                          HttpResponseStatus.BAD_REQUEST
-                                                                                                  .code())
-                                                                                      .add(HttpResponseStatus.NOT_FOUND
-                .code()).add(HttpResponseStatus.UNPROCESSABLE_ENTITY.code()).build();
 
     @Inject
     public CursorCommitter(final AsyncHttpClient httpClient, final Single<AccessToken> accessToken, final Gson gson) {
         this.httpClient = requireNonNull(httpClient);
         this.accessToken = requireNonNull(accessToken);
         this.gson = requireNonNull(gson);
+
     }
 
     public Subscription autoCommit(final URI nakadiUrl, final Single<String> sessionId,
-            final Supplier<Optional<Cursor>> cursorSupplier, final NakadiSubscription subscription,
+            final Supplier<Optional<Object>> cursorSupplier, final NakadiSubscription subscription,
             final long commitDelayMillis) {
 
         requireNonNull(nakadiUrl);
@@ -135,21 +125,22 @@ final class CursorCommitter {
 
     private Observable<CommitResult> parseResponse(final Response response) {
         final int statusCode = response.getStatusCode();
-        if (SUCCESS_CODES.contains(statusCode)) {
+        if (StatusCodes.SUCCESS_CODES.contains(statusCode)) {
             return Observable.just(gson.fromJson(response.getResponseBody(), CommitResult.class));
         }
 
-        if (ERROR_CODES.contains(statusCode)) {
+        if (StatusCodes.ERROR_CODES.contains(statusCode)) {
             final Problem problem = gson.fromJson(response.getResponseBody(), Problem.class);
             return Observable.error(new HystrixBadRequestException(problem.getDetail()));
         }
 
         return Observable.error(new UnsupportedOperationException(
-                    MessageFormat.format("Unsupported status code: {0}: {1}", statusCode, response.getResponseBody())));
+                    String.format("Unsupported status code: %s: %s", statusCode, response.getResponseBody())));
+
     }
 
     private BoundRequestBuilder buildRequest(final URI nakadiUrl, final AccessToken token, final String sessionId,
-            final Optional<Cursor> cursor, final String subscriptionId) {
+            final Optional<Object> cursor, final String subscriptionId) {
         final String commitUrl = String.format("%s/subscriptions/%s/cursors", nakadiUrl, subscriptionId);
         final CommitRequestPayload payload = new CommitRequestPayload(cursor.map(Collections::singleton).orElse(
                     Collections.emptySet()));
@@ -167,9 +158,9 @@ final class CursorCommitter {
      * Wrapper object containing the list of cursors being commited.
      */
     private static class CommitRequestPayload {
-        final Set<Cursor> items;
+        final Set<Object> items;
 
-        public CommitRequestPayload(final Set<Cursor> items) {
+        public CommitRequestPayload(final Set<Object> items) {
             this.items = ImmutableSet.copyOf(items);
         }
     }
@@ -192,14 +183,14 @@ final class CursorCommitter {
          */
         static final String RESULT_OUTDATED = "outdated";
 
-        private Cursor cursor;
+        private Object cursor;
 
         private String result;
 
         /**
          * Retrieves the cursor, which was tried to be commited.
          */
-        public Cursor getCursor() {
+        public Object getCursor() {
             return cursor;
         }
 

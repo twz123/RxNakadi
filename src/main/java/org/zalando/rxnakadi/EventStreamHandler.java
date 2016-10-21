@@ -1,4 +1,4 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.util.Objects.requireNonNull;
 
@@ -23,8 +23,8 @@ import org.asynchttpclient.HttpResponseStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.zalando.nakadilib.domain.EventBatch;
-import org.zalando.nakadilib.domain.NakadiEvent;
+import org.zalando.rxnakadi.domain.EventBatch;
+import org.zalando.rxnakadi.domain.NakadiEvent;
 
 import com.google.common.net.MediaType;
 
@@ -81,7 +81,7 @@ final class EventStreamHandler<E extends NakadiEvent> implements AsyncHandler<Ev
     /**
      * Identifier of the Nakadi session used for this processor.
      */
-    private final AsyncSubject<String> sessionId = AsyncSubject.create();
+    private final AsyncSubject<String> clientId = AsyncSubject.create();
 
     /**
      * As it is not guaranteed that every bodypart contains a complete event, a partly received event is stored until it
@@ -199,14 +199,14 @@ final class EventStreamHandler<E extends NakadiEvent> implements AsyncHandler<Ev
             return abort(new IllegalStateException("Missing " + NAKADI_CLIENT_IDENTIFIER_HEADER + " HTTP header"));
         }
 
-        sessionId.onNext(httpHeaders.get(NAKADI_CLIENT_IDENTIFIER_HEADER));
-        sessionId.onCompleted();
+        clientId.onNext(httpHeaders.get(NAKADI_CLIENT_IDENTIFIER_HEADER));
+        clientId.onCompleted();
 
         return State.CONTINUE;
     }
 
-    public Single<String> getSessionId() {
-        return sessionId.toSingle();
+    public Single<String> getClientId() {
+        return clientId.toSingle();
     }
 
     @Override

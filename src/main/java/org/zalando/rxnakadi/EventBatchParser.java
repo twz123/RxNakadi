@@ -1,21 +1,22 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
-import com.google.common.reflect.TypeParameter;
-import com.google.common.reflect.TypeToken;
-import com.jayway.jsonpath.*;
-import org.zalando.nakadilib.domain.Cursor;
-import org.zalando.nakadilib.domain.EventBatch;
-
-import javax.inject.Inject;
 import java.lang.reflect.Type;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
+import javax.inject.Inject;
+
+import org.zalando.rxnakadi.domain.EventBatch;
+
+import com.google.common.reflect.TypeParameter;
+import com.google.common.reflect.TypeToken;
+
+import com.jayway.jsonpath.*;
+
 /**
  * Parses raw JSON input into its respective Nakadi domain model hierarchy.
- *
- * @param  <E>  Nakadi event type being parsed
  */
 final class EventBatchParser {
 
@@ -48,7 +49,7 @@ final class EventBatchParser {
         final EventBatch<E> eventBatch = new EventBatch<>();
 
         final DocumentContext context = parseContext.parse(payload);
-        eventBatch.setCursor(context.read(cursorPath, Cursor.class));
+        eventBatch.setCursor(context.read(cursorPath, Object.class));
 
         try {
             eventBatch.setEvents(context.read(eventsPath, typeRef));

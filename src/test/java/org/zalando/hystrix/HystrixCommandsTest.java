@@ -38,6 +38,8 @@ import org.junit.internal.matchers.ThrowableMessageMatcher;
 
 import org.junit.rules.ExpectedException;
 
+import org.zalando.rxnakadi.hystrix.HystrixCommands;
+
 import com.google.common.base.Throwables;
 
 import com.netflix.hystrix.HystrixInvokableInfo;
@@ -45,7 +47,6 @@ import com.netflix.hystrix.HystrixObservable;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
 import com.netflix.hystrix.exception.HystrixRuntimeException;
 
-import org.zalando.nakadilib.hystrix.HystrixCommands;
 import rx.Single;
 
 import rx.observers.TestSubscriber;

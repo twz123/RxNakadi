@@ -1,11 +1,12 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 
+import org.zalando.rxnakadi.domain.PublishingProblem;
+
 import com.google.common.collect.ImmutableList;
-import org.zalando.nakadilib.domain.PublishingProblem;
 
 /**
  * Indicates that some events could not be published to Nakadi.

@@ -1,4 +1,4 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

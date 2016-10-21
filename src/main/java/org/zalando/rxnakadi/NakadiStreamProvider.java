@@ -1,4 +1,4 @@
-package org.zalando.nakadilib;
+package org.zalando.rxnakadi;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -18,10 +18,9 @@ import org.asynchttpclient.AsyncHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.zalando.nakadilib.domain.Cursor;
-import org.zalando.nakadilib.domain.EventBatch;
-import org.zalando.nakadilib.domain.NakadiEvent;
-import org.zalando.nakadilib.oauth2.AccessToken;
+import org.zalando.rxnakadi.domain.EventBatch;
+import org.zalando.rxnakadi.domain.NakadiEvent;
+import org.zalando.rxnakadi.oauth2.AccessToken;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;
@@ -118,7 +117,7 @@ public class NakadiStreamProvider {
     private <E extends NakadiEvent> Observable<List<E>> createObservable( //
             final StreamContext<E> ctx, final NakadiSubscription subscription) {
 
-        final AtomicReference<Cursor> cursorRef = new AtomicReference<>();
+        final AtomicReference<Object> cursorRef = new AtomicReference<>();
         return accessToken.flatMapObservable(token ->
                     Observable.<EventBatch<E>>create(subscriber ->
                             onSubscribe(ctx, token, subscription, subscriber, cursorRef)) //
@@ -130,12 +129,12 @@ public class NakadiStreamProvider {
 
     private <E extends NakadiEvent> void onSubscribe(final StreamContext<E> ctx, final AccessToken token,
             final NakadiSubscription subscription, final Subscriber<? super EventBatch<E>> subscriber,
-            final AtomicReference<Cursor> cursorRef) {
+            final AtomicReference<Object> cursorRef) {
 
         final EventStreamHandler<E> handler = EventStreamHandler.<E>create(subscriber, parser.forType(ctx.eventClass));
 
         // Start the auto committer
-        subscriber.add(cursorCommitter.autoCommit(ctx.nakadiUrl, handler.getSessionId(),
+        subscriber.add(cursorCommitter.autoCommit(ctx.nakadiUrl, handler.getClientId(),
                 () -> Optional.ofNullable(cursorRef.get()),
                 subscription, ctx.commitDelayMillis));
 

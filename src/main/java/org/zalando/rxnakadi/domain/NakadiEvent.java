@@ -1,4 +1,4 @@
-package org.zalando.nakadilib.domain;
+package org.zalando.rxnakadi.domain;
 
 import java.time.Instant;
 
