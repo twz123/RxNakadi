@@ -20,7 +20,8 @@ import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.domain.EventBatch;
 import org.zalando.rxnakadi.domain.NakadiEvent;
-import org.zalando.rxnakadi.oauth2.AccessToken;
+
+import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;

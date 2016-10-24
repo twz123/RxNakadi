@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.zalando.rxnakadi.http.RequestProvider;
 import org.zalando.rxnakadi.http.resource.Problem;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
-import org.zalando.rxnakadi.oauth2.AccessToken;
+import org.zalando.undertaking.oauth2.AccessToken;
 import org.zalando.rxnakadi.utils.StatusCodes;
 
 import com.google.common.base.Strings;

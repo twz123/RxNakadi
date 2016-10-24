@@ -24,8 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.http.resource.Problem;
-import org.zalando.rxnakadi.oauth2.AccessToken;
 import org.zalando.rxnakadi.utils.StatusCodes;
+
+import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
@@ -52,10 +53,9 @@ final class CursorCommitter {
     private static final Logger LOG = LoggerFactory.getLogger(CursorCommitter.class);
 
     private static final HystrixObservableCommand.Setter SETTER =
-        HystrixObservableCommand.Setter.withGroupKey(                                                             //
-                                           HystrixCommandGroupKey.Factory.asKey("nakadi"))                        //
-                                       .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()
-                                               .withExecutionTimeoutInMilliseconds(1000))                         //
+        HystrixObservableCommand.Setter.withGroupKey(                    //
+                                           HystrixCommandGroupKey.Factory.asKey("nakadi")) //
+                                       .andCommandPropertiesDefaults(HystrixCommandProperties.Setter()) //
                                        .andCommandKey(HystrixCommandKey.Factory.asKey("commitSubscription"));
 
     private final AsyncHttpClient httpClient;
