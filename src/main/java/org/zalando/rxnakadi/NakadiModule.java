@@ -33,22 +33,6 @@ import net.dongliu.gson.GsonJava8TypeAdapterFactory;
 @SuppressWarnings("static-method")
 public final class NakadiModule extends PrivateModule {
 
-    private final Consumer<GsonBuilder> gsonConfig;
-
-    public static Module withDefaultGsonConfig() {
-        return new NakadiModule(gson -> {
-                // nothing to apply here
-            });
-    }
-
-    public static Module withGsonConfig(final Consumer<GsonBuilder> gsonConfig) {
-        return new NakadiModule(gsonConfig);
-    }
-
-    private NakadiModule(final Consumer<GsonBuilder> gsonConfig) {
-        this.gsonConfig = requireNonNull(gsonConfig);
-    }
-
     @Override
     protected void configure() {
         bind(NakadiStreamProvider.class).in(Singleton.class);
@@ -64,20 +48,10 @@ public final class NakadiModule extends PrivateModule {
     @Internal
     AsyncHttpClient provideNakadiHttpClient() {
         final AsyncHttpClientConfig config =
-            new DefaultAsyncHttpClientConfig.Builder().setRequestTimeout(-1) // disable waiting for request completion
-                                                      .build();
+                new DefaultAsyncHttpClientConfig.Builder().setRequestTimeout(-1) // disable waiting for request completion
+                        .build();
 
         return new DefaultAsyncHttpClient(config);
-    }
-
-    @Provides
-    @Singleton
-    Gson provideGson() {
-        final GsonBuilder gsonBuilder = new GsonBuilder();
-        gsonBuilder.registerTypeAdapterFactory(new GsonJava8TypeAdapterFactory());
-        gsonConfig.accept(gsonBuilder);
-        gsonBuilder.setFieldNamingPolicy(LOWER_CASE_WITH_UNDERSCORES);
-        return gsonBuilder.create();
     }
 
     @Provides
@@ -85,9 +59,9 @@ public final class NakadiModule extends PrivateModule {
     ParseContext provideJsonPathParseContext(final Gson gson) {
         return JsonPath.using(
                 Configuration.builder()                     //
-                .jsonProvider(new GsonJsonProvider(gson))   //
-                .mappingProvider(new GsonMappingProvider(gson)) //
-                .options(EnumSet.noneOf(Option.class))      //
-                .build());
+                        .jsonProvider(new GsonJsonProvider(gson))   //
+                        .mappingProvider(new GsonMappingProvider(gson)) //
+                        .options(EnumSet.noneOf(Option.class))      //
+                        .build());
     }
 }
