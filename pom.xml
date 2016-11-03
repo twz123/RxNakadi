@@ -8,7 +8,7 @@
 
     <groupId>org.zalando</groupId>
     <artifactId>rx-nakadi</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
 
     <name>RxNakadi</name>
     <description>A toolbox for using Nakadi.</description>
