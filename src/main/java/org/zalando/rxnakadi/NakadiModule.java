@@ -1,11 +1,6 @@
 package org.zalando.rxnakadi;
 
-import static java.util.Objects.requireNonNull;
-
-import static com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES;
-
 import java.util.EnumSet;
-import java.util.function.Consumer;
 
 import javax.inject.Singleton;
 
@@ -15,9 +10,7 @@ import org.asynchttpclient.DefaultAsyncHttpClient;
 import org.asynchttpclient.DefaultAsyncHttpClientConfig;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
-import com.google.inject.Module;
 import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
 
@@ -27,8 +20,6 @@ import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ParseContext;
 import com.jayway.jsonpath.spi.json.GsonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.GsonMappingProvider;
-
-import net.dongliu.gson.GsonJava8TypeAdapterFactory;
 
 @SuppressWarnings("static-method")
 public final class NakadiModule extends PrivateModule {
@@ -48,8 +39,8 @@ public final class NakadiModule extends PrivateModule {
     @Internal
     AsyncHttpClient provideNakadiHttpClient() {
         final AsyncHttpClientConfig config =
-                new DefaultAsyncHttpClientConfig.Builder().setRequestTimeout(-1) // disable waiting for request completion
-                        .build();
+            new DefaultAsyncHttpClientConfig.Builder().setRequestTimeout(-1) // disable waiting for request completion
+                                                      .build();
 
         return new DefaultAsyncHttpClient(config);
     }
@@ -59,9 +50,9 @@ public final class NakadiModule extends PrivateModule {
     ParseContext provideJsonPathParseContext(final Gson gson) {
         return JsonPath.using(
                 Configuration.builder()                     //
-                        .jsonProvider(new GsonJsonProvider(gson))   //
-                        .mappingProvider(new GsonMappingProvider(gson)) //
-                        .options(EnumSet.noneOf(Option.class))      //
-                        .build());
+                .jsonProvider(new GsonJsonProvider(gson))   //
+                .mappingProvider(new GsonMappingProvider(gson)) //
+                .options(EnumSet.noneOf(Option.class))      //
+                .build());
     }
 }

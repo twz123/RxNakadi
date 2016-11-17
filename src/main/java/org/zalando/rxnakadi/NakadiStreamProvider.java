@@ -132,7 +132,8 @@ public class NakadiStreamProvider {
             final NakadiSubscription subscription, final Subscriber<? super EventBatch<E>> subscriber,
             final AtomicReference<Object> cursorRef) {
 
-        final EventStreamHandler<E> handler = EventStreamHandler.<E>create(subscriber, parser.forType(ctx.eventClass));
+        final SubscriptionAwareEventStreamHandler<E> handler = SubscriptionAwareEventStreamHandler.<E>create(subscriber,
+                parser.forType(ctx.eventClass));
 
         // Start the auto committer
         subscriber.add(cursorCommitter.autoCommit(ctx.nakadiUrl, handler.getClientId(),
