@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import org.asynchttpclient.HttpResponseBodyPart;
 import org.asynchttpclient.HttpResponseHeaders;
@@ -26,6 +27,9 @@ import org.slf4j.LoggerFactory;
 import org.zalando.rxnakadi.domain.EventBatch;
 import org.zalando.rxnakadi.domain.NakadiEvent;
 
+import com.github.davidmoten.rx.Strings;
+import com.github.davidmoten.rx.Transformers;
+
 import com.google.common.net.MediaType;
 
 import io.netty.handler.codec.http.HttpHeaders;
@@ -33,8 +37,6 @@ import io.netty.handler.codec.http.HttpHeaders;
 import rx.Observable;
 import rx.RxReactiveStreams;
 import rx.Subscriber;
-
-import rx.observables.StringObservable;
 
 /**
  * Creates the desired Nakadi events by consuming a continuous stream of raw data.
@@ -47,6 +49,14 @@ class EventStreamHandler<E extends NakadiEvent> implements StreamedAsyncHandler<
      * Logging instance of this class.
      */
     private static final Logger LOG = LoggerFactory.getLogger(EventStreamHandler.class);
+
+    /**
+     * Used to split the character stream into individual JSON chunks of Nakadi's flavor of the
+     * {@literal "application/x-json-stream"} Media Type. According to the <a
+     * href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L460">Nakadi API
+     * specification</a>, this is always the newline character.
+     */
+    private static final Pattern JSON_CHUNK_SEPARATOR = Pattern.compile("\\n", Pattern.LITERAL);
 
     /**
      * Target, which receives the produced events.
@@ -126,12 +136,12 @@ class EventStreamHandler<E extends NakadiEvent> implements StreamedAsyncHandler<
     @Override
     public State onStream(final Publisher<HttpResponseBodyPart> publisher) {
 
-        // parts -> bytes -> strings -> lines -> events
+        // parts -> bytes -> strings -> chunks -> events
         final Observable<HttpResponseBodyPart> parts = RxReactiveStreams.toObservable(publisher);
         final Observable<byte[]> bytes = parts.map(HttpResponseBodyPart::getBodyPartBytes);
-        final Observable<String> strings = StringObservable.decode(bytes, charset);
-        final Observable<String> lines = StringObservable.byLine(strings);
-        final Observable<? extends EventBatch<E>> events = lines.map(parser::apply);
+        final Observable<String> strings = Strings.decode(bytes, charset);
+        final Observable<String> chunks = strings.compose(Transformers.split(JSON_CHUNK_SEPARATOR));
+        final Observable<? extends EventBatch<E>> events = chunks.map(parser::apply);
 
         events.subscribe(subscriber);
 
