@@ -20,9 +20,6 @@ import org.asynchttpclient.Response;
 
 import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.zalando.rxnakadi.http.RequestProvider;
 import org.zalando.rxnakadi.http.resource.Problem;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
@@ -45,8 +42,6 @@ import rx.Observable;
 import rx.Single;
 
 final class EventStreamSubscriptionProvider extends RequestProvider {
-
-    private static final Logger LOG = LoggerFactory.getLogger(EventStreamSubscriptionProvider.class);
 
     private static final HystrixObservableCommand.Setter SETTER =
         HystrixObservableCommand.Setter.withGroupKey(                                                             //
