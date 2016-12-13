@@ -146,11 +146,11 @@ final class CursorCommitter {
                     Collections.emptySet()));
 
         return
-            httpClient.preparePost(commitUrl)                                                   //
-                      .setHeader(EventStreamHandler.NAKADI_CLIENT_IDENTIFIER_HEADER, sessionId) //
-                      .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.getValue())       //
-                      .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")                  //
-                      .setHeader(HttpHeaders.ACCEPT, "application/json")                        //
+            httpClient.preparePost(commitUrl)                                                                    //
+                      .setHeader(SubscriptionAwareEventStreamHandler.NAKADI_CLIENT_IDENTIFIER_HEADER, sessionId) //
+                      .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.getValue())                        //
+                      .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")                                   //
+                      .setHeader(HttpHeaders.ACCEPT, "application/json")                                         //
                       .setBody(gson.toJson(payload));
     }
 

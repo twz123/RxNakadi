@@ -21,6 +21,7 @@ import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 import org.zalando.rxnakadi.domain.NakadiEvent;
 import org.zalando.rxnakadi.domain.PublishingProblem;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
+
 import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.net.HttpHeaders;
