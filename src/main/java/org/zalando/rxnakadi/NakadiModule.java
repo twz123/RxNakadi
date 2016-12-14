@@ -4,10 +4,7 @@ import java.util.EnumSet;
 
 import javax.inject.Singleton;
 
-import org.asynchttpclient.AsyncHttpClient;
-import org.asynchttpclient.AsyncHttpClientConfig;
-import org.asynchttpclient.DefaultAsyncHttpClient;
-import org.asynchttpclient.DefaultAsyncHttpClientConfig;
+import org.zalando.rxnakadi.http.NakadiHttpClient;
 
 import com.google.gson.Gson;
 
@@ -28,21 +25,10 @@ public final class NakadiModule extends PrivateModule {
     protected void configure() {
         bind(NakadiStreamProvider.class).in(Singleton.class);
         bind(NakadiPublisher.class).in(Singleton.class);
-        bind(EventStreamSubscriptionProvider.class);
-        bind(CursorCommitter.class);
+        bind(NakadiHttpClient.class);
 
         expose(NakadiStreamProvider.class);
         expose(NakadiPublisher.class);
-    }
-
-    @Provides
-    @Internal
-    AsyncHttpClient provideNakadiHttpClient() {
-        final AsyncHttpClientConfig config =
-            new DefaultAsyncHttpClientConfig.Builder().setRequestTimeout(-1) // disable waiting for request completion
-                                                      .build();
-
-        return new DefaultAsyncHttpClient(config);
     }
 
     @Provides

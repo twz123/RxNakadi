@@ -67,7 +67,7 @@ public final class NakadiPublisher {
             .andCommandKey(HystrixCommandKey.Factory.asKey("publishEvents"));
 
     @Inject
-    NakadiPublisher(@Internal final AsyncHttpClient client, final Single<AccessToken> accessToken, final Gson gson) {
+    NakadiPublisher(final AsyncHttpClient client, final Single<AccessToken> accessToken, final Gson gson) {
         this.client = requireNonNull(client);
         this.accessToken = requireNonNull(accessToken);
         this.gson = requireNonNull(gson);
