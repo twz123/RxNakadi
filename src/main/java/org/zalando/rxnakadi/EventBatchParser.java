@@ -10,10 +10,15 @@ import javax.inject.Inject;
 
 import org.zalando.rxnakadi.domain.EventBatch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 
-import com.jayway.jsonpath.*;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.ParseContext;
+import com.jayway.jsonpath.PathNotFoundException;
+import com.jayway.jsonpath.TypeRef;
 
 /**
  * Parses raw JSON input into its respective Nakadi domain model hierarchy.
@@ -33,8 +38,8 @@ final class EventBatchParser {
     public <E> Function<String, EventBatch<E>> forType(final TypeToken<E> eventType) {
 
         final TypeRef<List<E>> typeRef = new TypeRef<List<E>>() {
-            private final Type eventListType = new TypeToken<List<E>>() { }.where(new TypeParameter<E>() { }, eventType)
-                                                                           .getType();
+            private final Type eventListType =     //
+                new TypeToken<List<E>>() { }.where(new TypeParameter<E>() { }, eventType).getType();
 
             @Override
             public Type getType() {
@@ -46,18 +51,15 @@ final class EventBatchParser {
     }
 
     private <E> EventBatch<E> parse(final TypeRef<List<E>> typeRef, final String payload) {
-        final EventBatch<E> eventBatch = new EventBatch<>();
-
         final DocumentContext context = parseContext.parse(payload);
-        eventBatch.setCursor(context.read(cursorPath, Object.class));
-
-        try {
-            eventBatch.setEvents(context.read(eventsPath, typeRef));
-        } catch (final PathNotFoundException noEventsFound) {
-            eventBatch.setEvents(Collections.emptyList());
-        }
-
-        return eventBatch;
+        return new EventBatch<>(context.read(cursorPath), getEvents(typeRef, context));
     }
 
+    private <E> List<E> getEvents(final TypeRef<List<E>> typeRef, final DocumentContext context) {
+        try {
+            return ImmutableList.copyOf(context.read(eventsPath, typeRef));
+        } catch (@SuppressWarnings("unused") final PathNotFoundException noEventsFound) {
+            return Collections.emptyList();
+        }
+    }
 }
