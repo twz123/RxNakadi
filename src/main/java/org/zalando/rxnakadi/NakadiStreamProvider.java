@@ -136,7 +136,7 @@ public class NakadiStreamProvider {
                 parser.forType(ctx.eventClass));
 
         // Start the auto committer
-        subscriber.add(cursorCommitter.autoCommit(ctx.nakadiUrl, handler.getClientId(),
+        subscriber.add(cursorCommitter.autoCommit(ctx.nakadiUrl, handler.getStreamId(),
                 () -> Optional.ofNullable(cursorRef.get()),
                 subscription, ctx.commitDelayMillis));
 
