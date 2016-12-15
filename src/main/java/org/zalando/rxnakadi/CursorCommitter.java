@@ -2,7 +2,12 @@ package org.zalando.rxnakadi;
 
 import static java.util.Objects.requireNonNull;
 
+import static org.zalando.rxnakadi.SubscriptionAwareEventStreamHandler.X_NAKADI_STREAM_ID;
+
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.net.HttpHeaders.ACCEPT;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 
 import java.net.URI;
 
@@ -29,7 +34,6 @@ import org.zalando.rxnakadi.utils.StatusCodes;
 import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.net.HttpHeaders;
 
 import com.google.gson.Gson;
 
@@ -70,12 +74,12 @@ final class CursorCommitter {
 
     }
 
-    public Subscription autoCommit(final URI nakadiUrl, final Single<String> sessionId,
+    public Subscription autoCommit(final URI nakadiUrl, final Single<String> streamId,
             final Supplier<Optional<Object>> cursorSupplier, final NakadiSubscription subscription,
             final long commitDelayMillis) {
 
         requireNonNull(nakadiUrl);
-        requireNonNull(sessionId);
+        requireNonNull(streamId);
         requireNonNull(cursorSupplier);
         requireNonNull(subscription);
         checkArgument(commitDelayMillis >= 0, "commitDelayMillis may not be negative: %s", commitDelayMillis);
@@ -83,7 +87,7 @@ final class CursorCommitter {
         final Func1<Observable<?>, Observable<?>> delayHandler = redo ->
                 redo.flatMap(next -> Observable.timer(commitDelayMillis, TimeUnit.MILLISECONDS));
 
-        return Single.zip(accessToken, sessionId, Single.fromCallable(cursorSupplier::get),
+        return Single.zip(accessToken, streamId, Single.fromCallable(cursorSupplier::get),
                          (token, id, cursor) -> {
                              final BoundRequestBuilder requestBuilder =                         //
                                  buildRequest(nakadiUrl, token, id, cursor, subscription.getId());
@@ -139,18 +143,18 @@ final class CursorCommitter {
 
     }
 
-    private BoundRequestBuilder buildRequest(final URI nakadiUrl, final AccessToken token, final String sessionId,
+    private BoundRequestBuilder buildRequest(final URI nakadiUrl, final AccessToken token, final String streamId,
             final Optional<Object> cursor, final String subscriptionId) {
         final String commitUrl = String.format("%s/subscriptions/%s/cursors", nakadiUrl, subscriptionId);
         final CommitRequestPayload payload = new CommitRequestPayload(cursor.map(Collections::singleton).orElse(
                     Collections.emptySet()));
 
         return
-            httpClient.preparePost(commitUrl)                                                                    //
-                      .setHeader(SubscriptionAwareEventStreamHandler.NAKADI_CLIENT_IDENTIFIER_HEADER, sessionId) //
-                      .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.getValue())                        //
-                      .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")                                   //
-                      .setHeader(HttpHeaders.ACCEPT, "application/json")                                         //
+            httpClient.preparePost(commitUrl)                                 //
+                      .setHeader(X_NAKADI_STREAM_ID, streamId)                //
+                      .setHeader(AUTHORIZATION, "Bearer " + token.getValue()) //
+                      .setHeader(CONTENT_TYPE, "application/json")            //
+                      .setHeader(ACCEPT, "application/json")                  //
                       .setBody(gson.toJson(payload));
     }
 

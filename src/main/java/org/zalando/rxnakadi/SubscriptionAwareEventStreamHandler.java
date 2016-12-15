@@ -25,12 +25,12 @@ public class SubscriptionAwareEventStreamHandler<E extends NakadiEvent> extends 
     /**
      * The HTTP header specifying the identifier to use when committing the cursor.
      */
-    public static final String NAKADI_CLIENT_IDENTIFIER_HEADER = "X-Nakadi-StreamId";
+    public static final String X_NAKADI_STREAM_ID = "X-Nakadi-StreamId";
 
     /**
-     * Identifier of the Nakadi session used for this processor.
+     * Identifier of the Nakadi stream used for this processor.
      */
-    private final AsyncSubject<String> clientId = AsyncSubject.create();
+    private final AsyncSubject<String> streamId = AsyncSubject.create();
 
     protected SubscriptionAwareEventStreamHandler(final Subscriber<? super EventBatch<E>> subscriber,
             final Function<? super String, ? extends EventBatch<E>> parser) {
@@ -67,18 +67,19 @@ public class SubscriptionAwareEventStreamHandler<E extends NakadiEvent> extends 
             return abort(e);
         }
 
-        // Get the Nakadi session id
-        if (!httpHeaders.contains(NAKADI_CLIENT_IDENTIFIER_HEADER)) {
-            return abort(new IllegalStateException("Missing " + NAKADI_CLIENT_IDENTIFIER_HEADER + " HTTP header"));
+        // Get the Nakadi Stream ID
+        final String streamId = httpHeaders.get(X_NAKADI_STREAM_ID);
+        if (streamId != null) {
+            this.streamId.onNext(streamId);
+            this.streamId.onCompleted();
+        } else {
+            return abort(new IllegalStateException("Missing " + X_NAKADI_STREAM_ID + " HTTP header"));
         }
-
-        clientId.onNext(httpHeaders.get(NAKADI_CLIENT_IDENTIFIER_HEADER));
-        clientId.onCompleted();
 
         return State.CONTINUE;
     }
 
-    public Single<String> getClientId() {
-        return clientId.toSingle();
+    public Single<String> getStreamId() {
+        return streamId.toSingle();
     }
 }
