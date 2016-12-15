@@ -9,6 +9,12 @@ import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static com.google.common.net.UrlEscapers.urlPathSegmentEscaper;
+
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpMethod.POST;
+
+import java.net.URI;
 
 import java.util.Collections;
 import java.util.Map;
@@ -18,19 +24,22 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import javax.inject.Inject;
 
 import org.asynchttpclient.AsyncHandler;
 import org.asynchttpclient.AsyncHttpClient;
-import org.asynchttpclient.Dsl;
 import org.asynchttpclient.Request;
 import org.asynchttpclient.RequestBuilder;
 import org.asynchttpclient.Response;
 
 import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 
+import org.asynchttpclient.uri.Uri;
+
 import org.zalando.rxnakadi.EventType;
+import org.zalando.rxnakadi.Nakadi;
 import org.zalando.rxnakadi.NakadiSubscription;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
 
@@ -38,7 +47,6 @@ import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.MediaType;
-import com.google.common.net.UrlEscapers;
 
 import com.google.gson.Gson;
 
@@ -46,6 +54,8 @@ import com.netflix.hystrix.HystrixCommandGroupKey;
 import com.netflix.hystrix.HystrixCommandKey;
 import com.netflix.hystrix.HystrixObservableCommand;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
+
+import io.netty.handler.codec.http.HttpMethod;
 
 import rx.Observable;
 import rx.Single;
@@ -70,52 +80,47 @@ public class NakadiHttpClient {
      */
     private final Pattern eventsDelimiterPattern = Pattern.compile("\\n", Pattern.LITERAL);
 
+    private final HystrixCommandGroupKey groupKey = HystrixCommandGroupKey.Factory.asKey("nakadi");
+
+    private final Uri nakadiEndpoint;
     private final AsyncHttpClient http;
-    private String nakadiUrl;
     private final Single<AccessToken> accessToken;
     private final Gson gson;
-    private HystrixCommandGroupKey groupKey;
 
     @Inject
-    public NakadiHttpClient(final Single<AccessToken> accessToken, final AsyncHttpClient http, final Gson gson) {
-        this.accessToken = requireNonNull(accessToken);
+    public NakadiHttpClient(@Nakadi final URI nakadiEndpoint, final AsyncHttpClient http,
+            final Single<AccessToken> accessToken, final Gson gson) {
+        this.nakadiEndpoint = Uri.create(nakadiEndpoint.toString());
         this.http = requireNonNull(http);
+        this.accessToken = requireNonNull(accessToken);
         this.gson = requireNonNull(gson);
     }
 
     public Single<NakadiSubscription> getSubscription( //
             final EventType eventType, final String owningApplication, final String consumerGroup) {
 
-        final String url = nakadiUrl + "/subscriptions";
+        final Uri uri = buildUri("subscriptions");
         final String payload = gson.toJson(new NakadiSubscription( //
                     owningApplication, Collections.singleton(eventType), consumerGroup));
 
         return request("getSubscription", response -> gson.fromJson(response, NakadiSubscription.class),
-                () ->
-                    Dsl.post(url)                               //
-                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString()) //
-                    .setBody(payload));
+                () -> requestFor(POST, uri).setHeader(CONTENT_TYPE, JSON_UTF_8.toString()).setBody(payload));
     }
 
     public Observable<String> getEventsForType(final EventType eventType) {
-        final String url = String.format("%s/subscriptions/%s/events", //
-                nakadiUrl, escapePathSegment(eventType.toString()));
-        return getEvents(url, null);
+        return getEvents(buildUri("event-types/%s/events", eventType.toString()), null);
     }
 
-    public Observable<String> getEventsForSubscription(final String subscriptionId,
-            final Consumer<String> nakadiStreamId) {
+    public Observable<String> getEventsForSubscription(final String subscriptionId, final Consumer<String> streamId) {
         checkArgument(subscriptionId.isEmpty(), "subscriptionId may not be empty");
-
-        final String url = String.format("%s/subscriptions/%s/events", //
-                nakadiUrl, escapePathSegment(subscriptionId));
-        return getEvents(url, nakadiStreamId);
+        requireNonNull(streamId);
+        return getEvents(buildUri("subscriptions/%s/events", subscriptionId), streamId);
     }
 
     public Single<String> commitCursor(final Optional<Object> cursor, final String subscriptionId,
             final String streamId) {
-        final String url = String.format("%s/subscriptions/%s/cursors", nakadiUrl, escapePathSegment(subscriptionId));
 
+        final Uri uri = buildUri("subscriptions/%s/cursors", subscriptionId);
         final String payload =                                   //
             cursor.map(Collections::singleton)                   //
                   .map(items -> ImmutableMap.of("items", items)) //
@@ -125,7 +130,7 @@ public class NakadiHttpClient {
         return request("commitCursor",
                 response -> Objects.toString(gson.fromJson(response, Map.class).get("result"), null),
                 () ->
-                    Dsl.post(url)                               //
+                    requestFor(HttpMethod.POST, uri)            //
                     .setHeader(X_NAKADI_STREAM_ID, streamId)    //
                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString()) //
                     .setBody(payload));
@@ -202,10 +207,10 @@ public class NakadiHttpClient {
         };
     }
 
-    private Observable<String> getEvents(final String url, final Consumer<String> nakadiStreamId) {
+    private Observable<String> getEvents(final Uri uri, final Consumer<String> nakadiStreamId) {
         return accessToken.flatMapObservable(token -> {
                 final Request request =
-                    Dsl.get(url)                                   //
+                    requestFor(GET, uri)                           //
                     .setHeader(AUTHORIZATION, token.getTypeAndValue()) //
                     .setHeader(ACCEPT, JSON_STREAM_TYPE.toString()) //
                     .build();
@@ -216,6 +221,15 @@ public class NakadiHttpClient {
                         subscriber.add(Subscriptions.from(http.executeRequest(request, handler)));
                     });
             });
+    }
+
+    private Uri buildUri(final String template, final String... pathParams) {
+        final Object[] escapedPathParams = Stream.of(pathParams).map(urlPathSegmentEscaper()::escape).toArray();
+        return Uri.create(nakadiEndpoint, String.format(template, escapedPathParams));
+    }
+
+    private static RequestBuilder requestFor(final HttpMethod method, final Uri uri) {
+        return new RequestBuilder(method.name()).setUri(uri);
     }
 
     private static String responseString(final Response response) {
@@ -234,9 +248,5 @@ public class NakadiHttpClient {
         }
 
         return buf.toString();
-    }
-
-    private static String escapePathSegment(final String pathSegment) {
-        return UrlEscapers.urlPathSegmentEscaper().escape(pathSegment);
     }
 }
