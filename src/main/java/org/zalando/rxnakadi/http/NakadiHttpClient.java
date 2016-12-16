@@ -2,7 +2,13 @@ package org.zalando.rxnakadi.http;
 
 import static java.util.Objects.requireNonNull;
 
+import static org.zalando.rxnakadi.http.AhcResponseDispatch.contentType;
+import static org.zalando.rxnakadi.http.AhcResponseDispatch.onClientError;
+import static org.zalando.rxnakadi.http.AhcResponseDispatch.responseString;
+import static org.zalando.rxnakadi.http.AhcResponseDispatch.statusCode;
 import static org.zalando.rxnakadi.http.DelimitedJsonStreamTarget.JSON_STREAM_TYPE;
+import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.dispatch;
+import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.on;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.ACCEPT;
@@ -17,8 +23,6 @@ import static io.netty.handler.codec.http.HttpMethod.POST;
 import java.net.URI;
 
 import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -103,8 +107,15 @@ public class NakadiHttpClient {
         final String payload = gson.toJson(new NakadiSubscription( //
                     owningApplication, Collections.singleton(eventType), consumerGroup));
 
-        return request("getSubscription", response -> gson.fromJson(response, NakadiSubscription.class),
-                () -> requestFor(POST, uri).setHeader(CONTENT_TYPE, JSON_UTF_8.toString()).setBody(payload));
+        return request(() ->
+                                    requestFor(POST, uri)                               //
+                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())     //
+                                    .setBody(payload))                                  //
+            .flatMap(dispatch(statusCode(),                                             //
+                                    on(201).dispatch(contentType(),                     //
+                                        on(jsonType).map(parse(NakadiSubscription.class))), //
+                                    onClientError().error(this::badResponse)))          //
+                            .compose(hystrix("getSubscription"));
     }
 
     public Observable<String> getEventsForType(final EventType eventType) {
@@ -127,41 +138,31 @@ public class NakadiHttpClient {
                   .map(gson::toJson)                             //
                   .orElse("[]");
 
-        return request("commitCursor",
-                response -> Objects.toString(gson.fromJson(response, Map.class).get("result"), null),
-                () ->
-                    requestFor(HttpMethod.POST, uri)            //
-                    .setHeader(X_NAKADI_STREAM_ID, streamId)    //
-                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString()) //
-                    .setBody(payload));
+        return request(() ->
+                                    requestFor(HttpMethod.POST, uri)                        //
+                                    .setHeader(X_NAKADI_STREAM_ID, streamId)                //
+                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())         //
+                                    .setBody(payload))                                      //
+            .flatMap(dispatch(statusCode(),                                                 //
+                                    on(200).dispatch(contentType(),                         //
+                                        on(jsonType).map(parse(CursorCommitResult.class))), //
+                                    onClientError().error(this::badResponse)))              //
+                            .compose(hystrix("commitCursor"))                               //
+                            .map(result -> result.result);
     }
 
-    private <T> Single<T> request(final String commandKeyName,
-            final Function<? super String, ? extends T> responseParser,
-            final Supplier<RequestBuilder> requestSupplier) {
-        final HystrixObservableCommand.Setter setter =             //
-            HystrixObservableCommand.Setter.withGroupKey(groupKey) //
-                                           .andCommandKey(HystrixCommandKey.Factory.asKey(commandKeyName));
-        return HystrixCommands.withRetries(() -> toHystrixCommand(setter, requestSupplier, responseParser), 3);
-    }
-
-    private <T> Observable<T> request(                      //
-            final Supplier<RequestBuilder> requestSupplier, //
-            final Function<? super String, ? extends T> responseParser) {
-
+    private Single<Response> request(final Supplier<RequestBuilder> requestSupplier) {
         return accessToken.map(token -> {
                               final RequestBuilder builder = requestSupplier.get();
                               builder.setHeader(AUTHORIZATION, token.getTypeAndValue());
                               builder.setHeader(ACCEPT, jsonType.toString());
                               builder.addHeader(ACCEPT, starJsonType.toString());
                               return builder.build();
-                          })                                                   //
+                          }) //
                           .flatMap(requestWithAuth -> {
                               return AsyncHttpSingle.create(handler ->
                                           http.executeRequest(requestWithAuth, handler));
-                          })                                                   //
-                          .<T>map(response -> parse(response, responseParser)) //
-                          .toObservable();
+                          });
     }
 
     private <T> T parse(final Response response, final Function<? super String, ? extends T> responseParser) {
@@ -196,13 +197,21 @@ public class NakadiHttpClient {
         throw new UnsupportedOperationException(responseString(response));
     }
 
-    private <T> HystrixObservableCommand<T> toHystrixCommand( //
-            final HystrixObservableCommand.Setter setter, final Supplier<RequestBuilder> requestSupplier,
-            final Function<? super String, ? extends T> responseParser) {
+    private <T> Single.Transformer<T, T> hystrix(final String commandKeyName) {
+        final HystrixObservableCommand.Setter setter =             //
+            HystrixObservableCommand.Setter.withGroupKey(groupKey) //
+                                           .andCommandKey(HystrixCommandKey.Factory.asKey(commandKeyName));
+        return single -> {
+            return HystrixCommands.withRetries(() -> toHystrixCommand(setter, single.toObservable()), 3);
+        };
+    }
+
+    private static <T> HystrixObservableCommand<T> toHystrixCommand(final HystrixObservableCommand.Setter setter,
+            final Observable<T> observable) {
         return new HystrixObservableCommand<T>(setter) {
             @Override
             protected Observable<T> construct() {
-                return request(requestSupplier, responseParser);
+                return observable;
             }
         };
     }
@@ -232,21 +241,16 @@ public class NakadiHttpClient {
         return new RequestBuilder(method.name()).setUri(uri);
     }
 
-    private static String responseString(final Response response) {
-        final String responseBody = response.getResponseBody();
-        final int numBodyChars = responseBody.length();
-        final StringBuilder buf = new StringBuilder(64 + Math.min(numBodyChars, 1000));
+    private <T> Function<Response, T> parse(final Class<T> clazz) {
+        requireNonNull(clazz);
+        return response -> gson.fromJson(response.getResponseBody(), clazz);
+    }
 
-        buf.append(response.getStatusCode()).append(' ').append(response.getStatusText());
-        if (numBodyChars > 0) {
-            buf.append(": ");
-            if (numBodyChars > 1000) {
-                buf.append(responseBody, 0, 999).append('…');
-            } else {
-                buf.append(responseBody);
-            }
-        }
+    private HystrixBadRequestException badResponse(final Response response) {
+        return new HystrixBadRequestException(responseString(response));
+    }
 
-        return buf.toString();
+    private static final class CursorCommitResult {
+        String result;
     }
 }
