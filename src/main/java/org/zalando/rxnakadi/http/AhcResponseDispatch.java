@@ -62,6 +62,11 @@ public final class AhcResponseDispatch {
         public <R> rx.Single<? extends R> dispatch(final Response response,
                 final List<Route<Response, ? super MediaType, R>> routes) {
             final String contentTypeString = response.getContentType();
+
+            if (contentTypeString == null) {
+                return Single.error(new UnsupportedOperationException("No content type: " + responseString(response)));
+            }
+
             final MediaType contentType;
             try {
                 contentType = contentTypeString == null ? null : MediaType.parse(contentTypeString);
