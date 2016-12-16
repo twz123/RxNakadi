@@ -111,7 +111,7 @@ public class NakadiHttpClient {
                                     requestFor(POST, uri)                               //
                                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())     //
                                     .setBody(payload))                                  //
-            .flatMap(dispatch(statusCode(),                                             //
+            .<NakadiSubscription>flatMap(dispatch(statusCode(),                         //
                                     on(201).dispatch(contentType(),                     //
                                         on(jsonType).map(parse(NakadiSubscription.class))), //
                                     onClientError().error(this::badResponse)))          //
@@ -143,7 +143,7 @@ public class NakadiHttpClient {
                                     .setHeader(X_NAKADI_STREAM_ID, streamId)                //
                                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())         //
                                     .setBody(payload))                                      //
-            .flatMap(dispatch(statusCode(),                                                 //
+            .<CursorCommitResult>flatMap(dispatch(statusCode(),                             //
                                     on(200).dispatch(contentType(),                         //
                                         on(jsonType).map(parse(CursorCommitResult.class))), //
                                     onClientError().error(this::badResponse)))              //
