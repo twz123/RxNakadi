@@ -11,6 +11,7 @@ import static org.zalando.rxnakadi.http.AhcResponseDispatch.statusCode;
 import static org.zalando.rxnakadi.http.DelimitedJsonStreamTarget.JSON_STREAM_TYPE;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.dispatch;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.on;
+import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.onAnyOf;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.ACCEPT;
@@ -40,6 +41,9 @@ import org.asynchttpclient.extras.rxjava.single.AsyncHttpSingle;
 
 import org.asynchttpclient.uri.Uri;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.Nakadi;
 import org.zalando.rxnakadi.NakadiSubscription;
@@ -64,6 +68,8 @@ import rx.subscriptions.Subscriptions;
 
 public class NakadiHttpClient {
 
+    private static final Logger LOG = LoggerFactory.getLogger(NakadiHttpClient.class);
+
     /**
      * The HTTP header specifying the identifier to use when committing the cursor.
      */
@@ -77,7 +83,7 @@ public class NakadiHttpClient {
      * href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L460">Nakadi API
      * specification</a>, this is always the newline character.
      */
-    private final Pattern eventsDelimiterPattern = Pattern.compile("\\n", Pattern.LITERAL);
+    private final Pattern eventsDelimiterPattern = Pattern.compile("\n", Pattern.LITERAL);
 
     private final HystrixCommandGroupKey groupKey = HystrixCommandGroupKey.Factory.asKey("nakadi");
 
@@ -88,7 +94,7 @@ public class NakadiHttpClient {
 
     @Inject
     public NakadiHttpClient(@Nakadi final URI nakadiEndpoint, final AsyncHttpClient http,
-            final Single<AccessToken> accessToken, final Gson gson) {
+            @Nakadi final Single<AccessToken> accessToken, final Gson gson) {
         this.nakadiEndpoint = Uri.create(nakadiEndpoint.toString());
         this.http = requireNonNull(http);
         this.accessToken = requireNonNull(accessToken);
@@ -99,16 +105,16 @@ public class NakadiHttpClient {
             final EventType eventType, final String owningApplication, final String consumerGroup) {
 
         final Request request =
-            new RequestBuilder().setUri(buildUri("subscriptions"))                            //
-                                .setHeader(ACCEPT, jsonType.toString())                       //
-                                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())               //
-                                .setBody(gson.toJson(
-                                        new NakadiSubscription(                               //
-                                            owningApplication, Collections.singleton(eventType), consumerGroup))) //
-                                .build();
+            new RequestBuilder(POST).setUri(buildUri("subscriptions"))                        //
+                                    .setHeader(ACCEPT, jsonType.toString())                   //
+                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())           //
+                                    .setBody(gson.toJson(
+                                            new NakadiSubscription(                           //
+                                                owningApplication, Collections.singleton(eventType), consumerGroup))) //
+                                    .build();
 
         return http(request).<NakadiSubscription>flatMap(dispatch(statusCode(),             //
-                                    on(201).dispatch(contentType(),                         //
+                                    onAnyOf(200, 201).dispatch(contentType(),               //
                                         on(jsonType).map(parse(NakadiSubscription.class))), //
                                     onClientError().error(this::hystrixBadRequest)))        //
                             .compose(hystrix("getSubscription"));
@@ -119,7 +125,7 @@ public class NakadiHttpClient {
     }
 
     public Observable<String> getEventsForSubscription(final String subscriptionId, final Consumer<String> streamId) {
-        checkArgument(subscriptionId.isEmpty(), "subscriptionId may not be empty");
+        checkArgument(!subscriptionId.isEmpty(), "subscriptionId may not be empty");
         requireNonNull(streamId);
         return getEvents(buildUri("subscriptions/%s/events", subscriptionId), streamId);
     }
@@ -132,15 +138,16 @@ public class NakadiHttpClient {
                                     .setHeader(X_NAKADI_STREAM_ID, streamId)                      //
                                     .setHeader(ACCEPT, jsonType.toString())                       //
                                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())               //
-                                    .setBody(cursor.map(Collections::singleton)                   //
-                                        .map(items -> ImmutableMap.of("items", items))            //
-                                        .map(gson::toJson)                                        //
-                                        .orElse("[]"))                                            //
+                                    .setBody(gson.toJson(
+                                            ImmutableMap.of("items",
+                                                cursor.map(Collections::singleton)                //
+                                                .orElse(Collections.emptySet()))))                //
                                     .build();
 
         return http(request).<CursorCommitResult>flatMap(dispatch(statusCode(),                 //
                                     on(200).dispatch(contentType(),                             //
                                         on(jsonType).map(parse(CursorCommitResult.class))),     //
+                                    on(204).map(response -> new CursorCommitResult()),          //
                                     onClientError().error(this::hystrixBadRequest)))            //
                             .compose(hystrix("commitCursor"))                                   //
                             .map(result -> result.result);
@@ -151,11 +158,19 @@ public class NakadiHttpClient {
                               final RequestBuilder builder = new RequestBuilder(request);
                               builder.setHeader(AUTHORIZATION, token.getTypeAndValue());
                               return builder.build();
-                          }) //
+                          })                                                                            //
                           .flatMap(requestWithAuth -> {
                               return AsyncHttpSingle.create(handler ->
-                                          http.executeRequest(requestWithAuth, handler));
-                          });
+                                          http.executeRequest(requestWithAuth, handler))                //
+                                  .doOnSubscribe(() ->
+                                          LOG.info("Request: [{} {}], headers: [{}], body: [{}]", request.getMethod(),
+                                              request.getUri(), request.getHeaders().entries(),
+                                              request.getStringData()));
+                          })                                                                            //
+                          .doOnSuccess(response ->
+                                  LOG.info("Response: [{} {}], headers: [{}], body: [{}]", response.getStatusCode(),
+                                      response.getStatusText(), response.getHeaders().entries(),
+                                      response.getResponseBody()));
     }
 
     private <T> Single.Transformer<T, T> hystrix(final String commandKeyName) {
@@ -181,11 +196,14 @@ public class NakadiHttpClient {
         return accessToken.flatMapObservable(token -> {
                 final Request request =
                     new RequestBuilder().setUri(uri)               //
+                    .setRequestTimeout(-1)                         //
                     .setHeader(AUTHORIZATION, token.getTypeAndValue()) //
                     .setHeader(ACCEPT, JSON_STREAM_TYPE.toString()) //
                     .build();
 
                 return Observable.create(subscriber -> {
+                        LOG.info("Request: [{} {}]", request.getMethod(), request.getUri());
+
                         final AsyncHandler<?> handler = StreamedAsyncAdapter.withTarget( //
                                 new DelimitedJsonStreamTarget(subscriber, eventsDelimiterPattern, nakadiStreamId));
                         subscriber.add(Subscriptions.from(http.executeRequest(request, handler)));

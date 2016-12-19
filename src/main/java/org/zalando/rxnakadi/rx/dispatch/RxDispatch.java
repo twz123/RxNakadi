@@ -12,6 +12,7 @@ import java.util.StringJoiner;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 
@@ -45,6 +46,11 @@ public final class RxDispatch {
                 return "on(" + attribute + ')';
             }
         };
+    }
+
+    @SafeVarargs
+    public static <A> IterableSelector<A> onAnyOf(final A... attributes) {
+        return onAnyOf(ImmutableSet.copyOf(attributes));
     }
 
     public static <A> IterableSelector<A> onAnyOf(final Set<? extends A> attributes) {
