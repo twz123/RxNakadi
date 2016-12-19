@@ -61,6 +61,7 @@ import com.netflix.hystrix.HystrixCommandKey;
 import com.netflix.hystrix.HystrixObservableCommand;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
 
+import rx.Completable;
 import rx.Observable;
 import rx.Single;
 
@@ -130,8 +131,7 @@ public class NakadiHttpClient {
         return getEvents(buildUri("subscriptions/%s/events", subscriptionId), streamId);
     }
 
-    public Single<String> commitCursor(final Optional<Object> cursor, final String subscriptionId,
-            final String streamId) {
+    public Completable commitCursor(final Optional<Object> cursor, final String subscriptionId, final String streamId) {
 
         final Request request =
             new RequestBuilder(POST).setUri(buildUri("subscriptions/%s/cursors", subscriptionId)) //
@@ -144,13 +144,12 @@ public class NakadiHttpClient {
                                                 .orElse(Collections.emptySet()))))                //
                                     .build();
 
-        return http(request).<CursorCommitResult>flatMap(dispatch(statusCode(),                 //
-                                    on(200).dispatch(contentType(),                             //
-                                        on(jsonType).map(parse(CursorCommitResult.class))),     //
-                                    on(204).map(response -> new CursorCommitResult()),          //
-                                    onClientError().error(this::hystrixBadRequest)))            //
-                            .compose(hystrix("commitCursor"))                                   //
-                            .map(result -> result.result);
+        return http(request).flatMap(dispatch(statusCode(),                                   //
+                                    on(200).dispatch(contentType(), on(jsonType).pass()),     //
+                                    on(204).pass(),                                           //
+                                    onClientError().error(this::hystrixBadRequest)))          //
+                            .compose(hystrix("commitCursor"))                                 //
+                            .toCompletable();
     }
 
     private Single<Response> http(final Request request) {
@@ -223,9 +222,5 @@ public class NakadiHttpClient {
 
     private HystrixBadRequestException hystrixBadRequest(final Response response) {
         return new HystrixBadRequestException(responseString(response));
-    }
-
-    private static final class CursorCommitResult {
-        String result;
     }
 }

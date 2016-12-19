@@ -57,43 +57,43 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
 
     private Subscription autoCommit(final Supplier<Object> cursorSupplier) {
 
-        return Observable.defer(() -> {
-                             final String streamId = CursorAutoCommitter.this.streamId;
-                             checkState(streamId != null, "No stream ID!");
+        return Completable.defer(() -> {
+                              final String streamId = CursorAutoCommitter.this.streamId;
+                              checkState(streamId != null, "No stream ID!");
 
-                             final Optional<Object> cursor = Optional.ofNullable(cursorSupplier.get());
+                              final Optional<Object> cursor = Optional.ofNullable(cursorSupplier.get());
 
-                             return http.commitCursor(cursor, subscriptionId, streamId)                                                     //
-                                 .doOnSubscribe(() ->
-                                         LOG.debug("Committing cursor [{}] on subscription [{}] for stream [{}]…",                          //
-                                             cursor, subscriptionId, streamId))                                                             //
-                                 .doOnSuccess(result ->
-                                         LOG.info("Committed cursor [{}] on subscription [{}] for stream [{}]: [{}]",                       //
-                                             cursor, subscriptionId, streamId, result))                                                     //
-                                 .toObservable()                                                                                            //
-                                 .onErrorResumeNext(error -> {
-                                     LOG.error(
-                                         "Failed to commit cursor [{}] on subscription [{}] for stream [{}]: [{}]",                         //
-                                         cursor, subscriptionId, streamId, error.getMessage(), error);
-                                     return Observable.empty();
-                                 });                                                                                                        //
-                         })                                                                                                                 //
-                         .onErrorResumeNext(error -> {
-                             LOG.error("Failed to commit cursor automatically on subscription [{}]: [{}]",                                  //
-                                 subscriptionId, error.getMessage(), error);
-                             return Observable.empty();
-                         })                                                                                                                 //
-                         .repeatWhen(redo -> redo.flatMap(next -> Observable.timer(delay, unit)))                                           //
-                         .compose(autoCommitter -> Completable.timer(delay, unit).andThen(autoCommitter))
-                         .doOnSubscribe(() ->
-                                 LOG.info("Automatically committing cursors for subscription [{}] every [{} {}].",                          //
-                                     subscriptionId, delay, unit))                                                                          //
-                         .doOnUnsubscribe(() ->
-                                 LOG.debug("Unsubscribed from auto committing cursors for subscription [{}].",
-                                     subscriptionId))                                                                                       //
-                         .doOnTerminate(() ->
-                                 LOG.info("Ending auto committing cursors for subscription [{}].", subscriptionId))                         //
-                         .subscribe();
+                              return
+                                  http.commitCursor(cursor, subscriptionId, streamId)                                                        //
+                                  .doOnSubscribe(subscription ->
+                                          LOG.debug("Committing cursor [{}] on subscription [{}] for stream [{}]…",                          //
+                                              cursor, subscriptionId, streamId))                                                             //
+                                  .doOnCompleted(() ->
+                                          LOG.info("Committed cursor [{}] on subscription [{}] for stream [{}]",                             //
+                                              cursor, subscriptionId, streamId))                                                             //
+                                  .onErrorComplete(error -> {
+                                      LOG.error(
+                                          "Failed to commit cursor [{}] on subscription [{}] for stream [{}]: [{}]",                         //
+                                          cursor, subscriptionId, streamId, error.getMessage(), error);
+                                      return true;
+                                  });                                                                                                        //
+                          })                                                                                                                 //
+                          .onErrorComplete(error -> {
+                              LOG.error("Failed to commit cursor automatically on subscription [{}]: [{}]",                                  //
+                                  subscriptionId, error.getMessage(), error);
+                              return true;
+                          })                                                                                                                 //
+                          .repeatWhen(redo -> redo.flatMap(next -> Observable.timer(delay, unit)))                                           //
+                          .compose(autoCommitter -> Completable.timer(delay, unit).andThen(autoCommitter))
+                          .doOnSubscribe(subscription ->
+                                  LOG.info("Automatically committing cursors for subscription [{}] every [{} {}].",                          //
+                                      subscriptionId, delay, unit))                                                                          //
+                          .doOnUnsubscribe(() ->
+                                  LOG.debug("Unsubscribed from auto committing cursors for subscription [{}].",
+                                      subscriptionId))                                                                                       //
+                          .doOnTerminate(() ->
+                                  LOG.info("Ending auto committing cursors for subscription [{}].", subscriptionId))                         //
+                          .subscribe();
     }
 
     private static final class CursorCapturingSubscriber<E> extends Subscriber<EventBatch<E>>

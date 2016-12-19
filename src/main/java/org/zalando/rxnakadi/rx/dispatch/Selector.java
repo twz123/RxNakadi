@@ -13,6 +13,10 @@ import rx.Single;
 
 public interface Selector<A> extends Predicate<A> {
 
+    default <T> Route<T, A, T> pass() {
+        return flatMap(Single::just);
+    }
+
     default <T, R> Route<T, A, R> map(final Function<? super T, ? extends R> fn) {
         return flatMap(requireNonNull(fn).andThen(Single::just));
     }
