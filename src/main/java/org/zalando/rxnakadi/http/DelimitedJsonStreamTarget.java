@@ -63,7 +63,7 @@ final class DelimitedJsonStreamTarget extends SubscriptionTarget<String> {
     public boolean startBodyStream(final HttpResponseStatus responseStatus, final HttpHeaders responseHeaders,
             final Publisher<HttpResponseBodyPart> publisher) {
 
-        LOG.info("Response: [{} {}], headers: [{}]", responseStatus.getStatusCode(), responseStatus.getStatusText(),
+        LOG.debug("Response: [{} {}], headers: [{}]", responseStatus.getStatusCode(), responseStatus.getStatusText(),
             responseHeaders.entries());
 
         if (subscriber.isUnsubscribed()) {

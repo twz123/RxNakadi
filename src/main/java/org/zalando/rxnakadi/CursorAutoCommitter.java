@@ -7,6 +7,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +30,6 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
     private final TimeUnit unit;
 
     private volatile String streamId;
-    private volatile Object cursor;
 
     CursorAutoCommitter(final NakadiHttpClient http, final String subscriptionId, //
             final long delay, final TimeUnit unit) {
@@ -47,36 +47,21 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
 
     @Override
     public Subscriber<? super EventBatch<E>> call(final Subscriber<? super EventBatch<E>> child) {
-        final Subscriber<EventBatch<E>> subscriber = new Subscriber<EventBatch<E>>(child) {
-            @Override
-            public void onCompleted() {
-                child.onCompleted();
-            }
-
-            @Override
-            public void onError(final Throwable t) {
-                child.onError(t);
-            }
-
-            @Override
-            public void onNext(final EventBatch<E> item) {
-                cursor = item.getCursor();
-                child.onNext(item);
-            }
-        };
+        final CursorCapturingSubscriber<E> parent = new CursorCapturingSubscriber<>(child);
 
         // Start the auto committer
-        subscriber.add(autoCommit());
+        child.add(autoCommit(parent));
 
-        return subscriber;
+        return parent;
     }
 
-    private Subscription autoCommit() {
+    private Subscription autoCommit(final Supplier<Object> cursorSupplier) {
+
         return Observable.defer(() -> {
                              final String streamId = CursorAutoCommitter.this.streamId;
                              checkState(streamId != null, "No stream ID!");
 
-                             final Optional<Object> cursor = Optional.ofNullable(CursorAutoCommitter.this.cursor);
+                             final Optional<Object> cursor = Optional.ofNullable(cursorSupplier.get());
 
                              return http.commitCursor(cursor, subscriptionId, streamId)                                                     //
                                  .doOnSubscribe(() ->
@@ -94,14 +79,14 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
                                  });                                                                                                        //
                          })                                                                                                                 //
                          .onErrorResumeNext(error -> {
-                             LOG.error("Failed to commit cursor [{}] on subscription [{}]: [{}]",                                           //
-                                 cursor, subscriptionId, error.getMessage(), error);
+                             LOG.error("Failed to commit cursor automatically on subscription [{}]: [{}]",                                  //
+                                 subscriptionId, error.getMessage(), error);
                              return Observable.empty();
                          })                                                                                                                 //
                          .repeatWhen(redo -> redo.flatMap(next -> Observable.timer(delay, unit)))                                           //
                          .compose(autoCommitter -> Completable.timer(delay, unit).andThen(autoCommitter))
                          .doOnSubscribe(() ->
-                                 LOG.info("Auto commit cursors for subscription [{}] every [{} {}].",                                       //
+                                 LOG.info("Automatically committing cursors for subscription [{}] every [{} {}].",                          //
                                      subscriptionId, delay, unit))                                                                          //
                          .doOnUnsubscribe(() ->
                                  LOG.debug("Unsubscribed from auto committing cursors for subscription [{}].",
@@ -109,5 +94,38 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
                          .doOnTerminate(() ->
                                  LOG.info("Ending auto committing cursors for subscription [{}].", subscriptionId))                         //
                          .subscribe();
+    }
+
+    private static final class CursorCapturingSubscriber<E> extends Subscriber<EventBatch<E>>
+        implements Supplier<Object> {
+        private final Subscriber<? super EventBatch<E>> child;
+
+        private volatile Object cursor;
+
+        CursorCapturingSubscriber(final Subscriber<? super EventBatch<E>> child) {
+            super(child);
+            this.child = child;
+        }
+
+        @Override
+        public Object get() {
+            return cursor;
+        }
+
+        @Override
+        public void onCompleted() {
+            child.onCompleted();
+        }
+
+        @Override
+        public void onError(final Throwable t) {
+            child.onError(t);
+        }
+
+        @Override
+        public void onNext(final EventBatch<E> item) {
+            cursor = item.getCursor();
+            child.onNext(item);
+        }
     }
 }

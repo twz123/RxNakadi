@@ -163,12 +163,12 @@ public class NakadiHttpClient {
                               return AsyncHttpSingle.create(handler ->
                                           http.executeRequest(requestWithAuth, handler))                //
                                   .doOnSubscribe(() ->
-                                          LOG.info("Request: [{} {}], headers: [{}], body: [{}]", request.getMethod(),
+                                          LOG.debug("Request: [{} {}], headers: [{}], body: [{}]", request.getMethod(),
                                               request.getUri(), request.getHeaders().entries(),
                                               request.getStringData()));
                           })                                                                            //
                           .doOnSuccess(response ->
-                                  LOG.info("Response: [{} {}], headers: [{}], body: [{}]", response.getStatusCode(),
+                                  LOG.debug("Response: [{} {}], headers: [{}], body: [{}]", response.getStatusCode(),
                                       response.getStatusText(), response.getHeaders().entries(),
                                       response.getResponseBody()));
     }
@@ -202,7 +202,7 @@ public class NakadiHttpClient {
                     .build();
 
                 return Observable.create(subscriber -> {
-                        LOG.info("Request: [{} {}]", request.getMethod(), request.getUri());
+                        LOG.debug("Request: [{} {}]", request.getMethod(), request.getUri());
 
                         final AsyncHandler<?> handler = StreamedAsyncAdapter.withTarget( //
                                 new DelimitedJsonStreamTarget(subscriber, eventsDelimiterPattern, nakadiStreamId));
