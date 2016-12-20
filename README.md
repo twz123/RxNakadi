@@ -1,5 +1,8 @@
 ### RxNakadi
 
+[![Build Status](https://travis-ci.org/zalando-incubator/RxNakadi.svg?branch=master)](https://travis-ci.org/zalando-incubator/RxNakadi)
+[![codecov.io](http://codecov.io/github/zalando-incubator/RxNakadi/coverage.svg?branch=master)](http://codecov.io/github/zalando-incubator/RxNakadi?branch=master)
+
 Communicate with Nakadi in a reactive way using Async HTTP Client and RxJava.
 
 #### License
