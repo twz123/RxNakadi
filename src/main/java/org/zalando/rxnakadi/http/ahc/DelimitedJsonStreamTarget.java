@@ -1,12 +1,12 @@
-package org.zalando.rxnakadi.http;
+package org.zalando.rxnakadi.http.ahc;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import static java.util.Objects.requireNonNull;
 
-import static org.zalando.rxnakadi.http.AhcResponseDispatch.responseString;
-import static org.zalando.rxnakadi.http.AhcResponseDispatch.statusCode;
-import static org.zalando.rxnakadi.http.NakadiHttpClient.X_NAKADI_STREAM_ID;
+import static org.zalando.rxnakadi.http.NakadiHttp.X_NAKADI_STREAM_ID;
+import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.responseString;
+import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.statusCode;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.dispatch;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.on;
 
