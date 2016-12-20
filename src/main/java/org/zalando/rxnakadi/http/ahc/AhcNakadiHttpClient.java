@@ -53,6 +53,7 @@ import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.Nakadi;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.NakadiSubscription;
+import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
 
@@ -238,6 +239,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
 
     private HystrixBadRequestException publishingProblem(final EventType eventType, final Response response) {
         final NakadiPublishingException publishingException = new NakadiPublishingException(eventType,
+                response.getHeader(NakadiHttp.X_FLOW_ID),
                 gson.fromJson(response.getResponseBody(), PUBLISHING_PROBLEM_LIST));
         return new HystrixBadRequestException(publishingException.getMessage(), publishingException);
     }

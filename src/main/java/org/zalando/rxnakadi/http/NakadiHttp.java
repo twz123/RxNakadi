@@ -19,6 +19,11 @@ import com.netflix.hystrix.HystrixCommandGroupKey;
 public final class NakadiHttp {
 
     /**
+     * Zalando's Flow ID header name.
+     */
+    public static final String X_FLOW_ID = "X-Flow-Id";
+
+    /**
      * The HTTP header specifying the identifier to use when committing the cursor.
      */
     public static final String X_NAKADI_STREAM_ID = "X-Nakadi-StreamId";
