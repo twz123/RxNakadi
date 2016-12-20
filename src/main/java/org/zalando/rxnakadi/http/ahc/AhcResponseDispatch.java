@@ -1,4 +1,4 @@
-package org.zalando.rxnakadi.http;
+package org.zalando.rxnakadi.http.ahc;
 
 import java.util.List;
 

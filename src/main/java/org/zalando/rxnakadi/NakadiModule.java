@@ -5,6 +5,7 @@ import java.util.EnumSet;
 import javax.inject.Singleton;
 
 import org.zalando.rxnakadi.http.NakadiHttpClient;
+import org.zalando.rxnakadi.http.ahc.AhcNakadiHttpClient;
 
 import com.google.gson.Gson;
 
@@ -25,7 +26,7 @@ public final class NakadiModule extends PrivateModule {
     protected void configure() {
         bind(NakadiStreamProvider.class).in(Singleton.class);
         bind(NakadiPublisher.class).in(Singleton.class);
-        bind(NakadiHttpClient.class);
+        bind(NakadiHttpClient.class).to(AhcNakadiHttpClient.class).in(Singleton.class);
 
         expose(NakadiStreamProvider.class);
         expose(NakadiPublisher.class);
