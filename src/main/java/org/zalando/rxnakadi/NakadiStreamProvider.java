@@ -5,35 +5,27 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import java.net.URI;
-
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import javax.inject.Inject;
-
-import org.asynchttpclient.AsyncHttpClient;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.domain.EventBatch;
 import org.zalando.rxnakadi.domain.NakadiEvent;
-
-import org.zalando.undertaking.oauth2.AccessToken;
+import org.zalando.rxnakadi.http.NakadiHttpClient;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.net.HttpHeaders;
 import com.google.common.primitives.Ints;
 import com.google.common.reflect.TypeToken;
 
 import rx.Observable;
-import rx.Single;
-import rx.Subscriber;
 
 /**
  * Provides instances of {@link Observable}s to retrieve Nakadi events of a particular type.
@@ -41,7 +33,6 @@ import rx.Subscriber;
 public class NakadiStreamProvider {
 
     private static final class StreamContext<E> {
-        final URI nakadiUrl;
         final String owningApplication;
         final EventType eventType;
         private final String consumerGroup;
@@ -50,9 +41,8 @@ public class NakadiStreamProvider {
 
         private String toStringCache;
 
-        StreamContext(final URI nakadiUrl, final String owningApplication, final EventType eventType,
-                final String consumerGroup, final TypeToken<E> eventClass, final long commitDelayMillis) {
-            this.nakadiUrl = requireNonNull(nakadiUrl);
+        StreamContext(final String owningApplication, final EventType eventType, final String consumerGroup,
+                final TypeToken<E> eventClass, final long commitDelayMillis) {
             this.owningApplication = requireNonNull(owningApplication);
             this.eventType = requireNonNull(eventType);
             this.consumerGroup = requireNonNull(consumerGroup);
@@ -82,71 +72,44 @@ public class NakadiStreamProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(NakadiStreamProvider.class);
 
-    private final AsyncHttpClient httpClient;
-    private final Single<AccessToken> accessToken;
     private final EventBatchParser parser;
-    private final EventStreamSubscriptionProvider subscriptionProvider;
-    private final CursorCommitter cursorCommitter;
+    private final NakadiHttpClient http;
 
     @Inject
-    public NakadiStreamProvider(@Internal final AsyncHttpClient httpClient, final Single<AccessToken> accessToken,
-            final EventStreamSubscriptionProvider subscriptionProvider, final EventBatchParser parser,
-            final CursorCommitter cursorCommitter) {
-        this.httpClient = requireNonNull(httpClient);
-        this.accessToken = requireNonNull(accessToken);
+    public NakadiStreamProvider(final NakadiHttpClient http, final EventBatchParser parser) {
         this.parser = requireNonNull(parser);
-        this.subscriptionProvider = requireNonNull(subscriptionProvider);
-        this.cursorCommitter = requireNonNull(cursorCommitter);
+        this.http = requireNonNull(http);
     }
 
-    public <E extends NakadiEvent> Observable<List<E>> streamFor(final URI nakadiUrl, final String owningApplication,
+    public <E extends NakadiEvent> Observable<List<E>> streamFor(final String owningApplication,
             final EventType eventType, final String consumerGroup, final TypeToken<E> eventClass,
             final long commitDelayMillis) {
-        return streamFor(new StreamContext<>(nakadiUrl, owningApplication, eventType, consumerGroup, eventClass,
+        return streamFor(new StreamContext<>(owningApplication, eventType, consumerGroup, eventClass,
                     commitDelayMillis));
     }
 
     private <E extends NakadiEvent> Observable<List<E>> streamFor(final StreamContext<E> ctx) {
+        final Function<String, EventBatch<E>> eventParser = parser.forType(ctx.eventClass);
+
         return
-            subscriptionProvider.get(ctx.nakadiUrl, ctx.owningApplication, ctx.eventType, ctx.consumerGroup) //
-                                .flatMapObservable(subscription ->
-                                        createObservable(ctx, subscription))                                 //
-                                .repeat()                                                                    //
-                                .retryWhen(retryer -> scheduleRetries(retryer, ctx));
-    }
+            http.getSubscription(ctx.eventType, ctx.owningApplication, ctx.consumerGroup) //
+                .flatMapObservable(subscription -> {
+                    final String subscriptionId = subscription.getId();
+                    final CursorAutoCommitter<E> cursorAutoCommitter =                    //
+                        new CursorAutoCommitter<>(                                        //
+                            http, subscriptionId,                                         //
+                            ctx.commitDelayMillis, TimeUnit.MILLISECONDS);
 
-    private <E extends NakadiEvent> Observable<List<E>> createObservable( //
-            final StreamContext<E> ctx, final NakadiSubscription subscription) {
-
-        final AtomicReference<Object> cursorRef = new AtomicReference<>();
-        return accessToken.flatMapObservable(token ->
-                    Observable.<EventBatch<E>>create(subscriber ->
-                            onSubscribe(ctx, token, subscription, subscriber, cursorRef)) //
-                    .doOnNext(batch -> cursorRef.set(batch.getCursor()))                //
-                    .doOnSubscribe(() -> LOG.info("Starting event stream for [{}].", ctx)) //
-                    .doOnCompleted(() -> LOG.info("Event stream completed for [{}].", ctx)) //
-                    .map(EventBatch::getEvents));
-    }
-
-    private <E extends NakadiEvent> void onSubscribe(final StreamContext<E> ctx, final AccessToken token,
-            final NakadiSubscription subscription, final Subscriber<? super EventBatch<E>> subscriber,
-            final AtomicReference<Object> cursorRef) {
-
-        final SubscriptionAwareEventStreamHandler<E> handler = SubscriptionAwareEventStreamHandler.<E>create(subscriber,
-                parser.forType(ctx.eventClass));
-
-        // Start the auto committer
-        subscriber.add(cursorCommitter.autoCommit(ctx.nakadiUrl, handler.getStreamId(),
-                () -> Optional.ofNullable(cursorRef.get()),
-                subscription, ctx.commitDelayMillis));
-
-        httpClient.prepareGet(getSubscriptionUrl(ctx, subscription))                  //
-                  .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.getValue()) //
-                  .execute(handler);
-    }
-
-    private static String getSubscriptionUrl(final StreamContext<?> ctx, final NakadiSubscription subscription) {
-        return String.format("%s/subscriptions/%s/events", ctx.nakadiUrl, subscription.getId());
+                    return
+                        http.getEventsForSubscription(subscriptionId, cursorAutoCommitter::setStreamId)     //
+                        .map(eventParser::apply)                                                            //
+                        .lift(cursorAutoCommitter)                                                          //
+                        .doOnSubscribe(() -> LOG.info("Starting event stream for [{}].", ctx))              //
+                        .doOnTerminate(() -> LOG.info("Event stream terminated for [{}].", ctx))            //
+                        .map(EventBatch::getEvents);
+                })                                                                                          //
+                .repeat()                                                                                   //
+                .retryWhen(retryer -> scheduleRetries(retryer, ctx));
     }
 
     private static Observable<?> scheduleRetries(final Observable<? extends Throwable> retryer,
