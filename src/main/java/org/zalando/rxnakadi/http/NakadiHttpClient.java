@@ -20,9 +20,12 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.net.UrlEscapers.urlPathSegmentEscaper;
 
+import java.lang.reflect.Type;
+
 import java.net.URI;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -46,7 +49,9 @@ import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.Nakadi;
+import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.NakadiSubscription;
+import org.zalando.rxnakadi.domain.PublishingProblem;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
 
 import org.zalando.undertaking.oauth2.AccessToken;
@@ -55,6 +60,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.MediaType;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import com.netflix.hystrix.HystrixCommandGroupKey;
 import com.netflix.hystrix.HystrixCommandKey;
@@ -77,6 +83,7 @@ public class NakadiHttpClient {
     static final String X_NAKADI_STREAM_ID = "X-Nakadi-StreamId";
 
     private final MediaType jsonType = MediaType.JSON_UTF_8.withoutParameters();
+    private final MediaType problemType = MediaType.create("application", "x-problem");
 
     /**
      * Used to split the character stream into individual JSON chunks of Nakadi's flavor of the
@@ -85,6 +92,10 @@ public class NakadiHttpClient {
      * specification</a>, this is always the newline character.
      */
     private final Pattern eventsDelimiterPattern = Pattern.compile("\n", Pattern.LITERAL);
+
+    private final Type publishingProblemList = new TypeToken<List<PublishingProblem>>() {
+            // capture generic type
+        }.getType();
 
     private final HystrixCommandGroupKey groupKey = HystrixCommandGroupKey.Factory.asKey("nakadi");
 
@@ -149,6 +160,29 @@ public class NakadiHttpClient {
                                     on(204).pass(),                                           //
                                     onClientError().error(this::hystrixBadRequest)))          //
                             .compose(hystrix("commitCursor"))                                 //
+                            .toCompletable();
+    }
+
+    public <E> Completable publishEvents(final EventType eventType, final List<E> events) {
+        requireNonNull(eventType);
+
+        if (events.isEmpty()) {
+            return Completable.complete();
+        }
+
+        final Request request =
+            new RequestBuilder(POST).setUri(buildUri("event-types/%s/events", eventType.toString())) //
+                                    .setHeader(ACCEPT, jsonType.toString())                          //
+                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())                  //
+                                    .setBody(gson.toJson(events))                                    //
+                                    .build();
+
+        return http(request).flatMap(dispatch(statusCode(),                                   //
+                                    on(200).dispatch(contentType(), on(jsonType).pass()),     //
+                                    on(422).dispatch(contentType(), on(problemType).error(response ->
+                                                publishingProblem(eventType, response))),     //
+                                    onClientError().error(this::hystrixBadRequest)))          //
+                            .compose(hystrix("publishEvents"))                                //
                             .toCompletable();
     }
 
@@ -218,6 +252,12 @@ public class NakadiHttpClient {
     private <T> Function<Response, T> parse(final Class<T> clazz) {
         requireNonNull(clazz);
         return response -> gson.fromJson(response.getResponseBody(), clazz);
+    }
+
+    private HystrixBadRequestException publishingProblem(final EventType eventType, final Response response) {
+        final NakadiPublishingException publishingException = new NakadiPublishingException(eventType,
+                gson.fromJson(response.getResponseBody(), publishingProblemList));
+        return new HystrixBadRequestException(publishingException.getMessage(), publishingException);
     }
 
     private HystrixBadRequestException hystrixBadRequest(final Response response) {
