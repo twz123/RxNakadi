@@ -11,6 +11,7 @@ import static org.hamcrest.Matchers.is;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.contentType;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.onClientError;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.statusCode;

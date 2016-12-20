@@ -27,7 +27,7 @@ public class NakadiPublishingException extends RuntimeException {
 
     @Override
     public String getMessage() {
-        return String.format("%s events of type %s could not be published to Nakadi. (Flow-ID: %s)", //
+        return String.format("%s events of type '%s' could not be published to Nakadi. (Flow-ID: %s)", //
                 problems.size(), eventType, flowId);
     }
 
