@@ -5,7 +5,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import org.zalando.rxnakadi.EventType;
-import org.zalando.rxnakadi.NakadiSubscription;
+import org.zalando.rxnakadi.SubscriptionDescriptor;
+import org.zalando.rxnakadi.domain.NakadiSubscription;
 
 import rx.Completable;
 import rx.Observable;
@@ -16,8 +17,7 @@ import rx.Single;
  */
 public interface NakadiHttpClient {
 
-    Single<NakadiSubscription> getSubscription( //
-            final EventType eventType, final String owningApplication, final String consumerGroup);
+    Single<NakadiSubscription> getSubscription(final EventType eventType, SubscriptionDescriptor sd);
 
     Observable<String> getEventsForType(final EventType eventType);
 

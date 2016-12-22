@@ -50,12 +50,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.EventType;
-import org.zalando.rxnakadi.Nakadi;
 import org.zalando.rxnakadi.NakadiPublishingException;
-import org.zalando.rxnakadi.NakadiSubscription;
+import org.zalando.rxnakadi.SubscriptionDescriptor;
+import org.zalando.rxnakadi.domain.NakadiSubscription;
 import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
+import org.zalando.rxnakadi.inject.Nakadi;
 
 import org.zalando.undertaking.oauth2.AccessToken;
 
@@ -93,15 +94,20 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
 
     @Override
     public Single<NakadiSubscription> getSubscription( //
-            final EventType eventType, final String owningApplication, final String consumerGroup) {
+            final EventType eventType, final SubscriptionDescriptor sd) {
+        requireNonNull(eventType);
+        requireNonNull(sd);
+
+        final NakadiSubscription subscription = new NakadiSubscription( //
+                sd.getOwningApplication(),                              //
+                Collections.singleton(eventType),                       //
+                sd.getConsumerGroup());
 
         final Request request =
-            new RequestBuilder(POST).setUri(buildUri("subscriptions"))                        //
-                                    .setHeader(ACCEPT, JSON_TYPE.toString())                  //
-                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())           //
-                                    .setBody(gson.toJson(
-                                            new NakadiSubscription(                           //
-                                                owningApplication, Collections.singleton(eventType), consumerGroup))) //
+            new RequestBuilder(POST).setUri(buildUri("subscriptions"))              //
+                                    .setHeader(ACCEPT, JSON_TYPE.toString())        //
+                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString()) //
+                                    .setBody(gson.toJson(subscription))             //
                                     .build();
 
         return http(request).<NakadiSubscription>flatMap(dispatch(statusCode(),              //

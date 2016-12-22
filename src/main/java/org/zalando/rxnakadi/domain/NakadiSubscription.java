@@ -1,7 +1,9 @@
-package org.zalando.rxnakadi;
+package org.zalando.rxnakadi.domain;
 
 import java.util.Collection;
 import java.util.Set;
+
+import org.zalando.rxnakadi.EventType;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;

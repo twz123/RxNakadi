@@ -1,4 +1,4 @@
-package org.zalando.rxnakadi;
+package org.zalando.rxnakadi.inject;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
