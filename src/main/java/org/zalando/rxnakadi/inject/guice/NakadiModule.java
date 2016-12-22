@@ -8,13 +8,12 @@ import javax.inject.Singleton;
 
 import org.asynchttpclient.AsyncHttpClient;
 
+import org.zalando.rxnakadi.AccessToken;
 import org.zalando.rxnakadi.NakadiTopicFactory;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.http.ahc.AhcNakadiHttpClient;
 import org.zalando.rxnakadi.inject.Nakadi;
 import org.zalando.rxnakadi.internal.DefaultNakadiTopicFactory;
-
-import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.gson.Gson;
 
@@ -27,6 +26,8 @@ import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.ParseContext;
 import com.jayway.jsonpath.spi.json.GsonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.GsonMappingProvider;
+
+import rx.Single;
 
 /**
  * Provides bindings for {@link NakadiTopicFactory}.

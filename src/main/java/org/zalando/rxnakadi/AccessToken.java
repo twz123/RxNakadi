@@ -1,4 +1,4 @@
-package org.zalando.undertaking.oauth2;
+package org.zalando.rxnakadi;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 

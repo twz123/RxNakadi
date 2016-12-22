@@ -31,11 +31,10 @@ import org.hamcrest.Matcher;
 import org.junit.Rule;
 import org.junit.Test;
 
+import org.zalando.rxnakadi.AccessToken;
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.domain.PublishingProblem;
-
-import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 

@@ -49,6 +49,7 @@ import org.asynchttpclient.uri.Uri;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.zalando.rxnakadi.AccessToken;
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
@@ -57,8 +58,6 @@ import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
 import org.zalando.rxnakadi.inject.Nakadi;
-
-import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.collect.ImmutableMap;
 
