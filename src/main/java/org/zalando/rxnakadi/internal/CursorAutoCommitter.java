@@ -1,4 +1,4 @@
-package org.zalando.rxnakadi;
+package org.zalando.rxnakadi.internal;
 
 import static java.util.Objects.requireNonNull;
 
@@ -6,12 +6,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.zalando.rxnakadi.AutoCommit;
 import org.zalando.rxnakadi.domain.EventBatch;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 
@@ -20,25 +20,26 @@ import rx.Observable;
 import rx.Subscriber;
 import rx.Subscription;
 
+/**
+ * Commits cursors automatically to Nakadi, waiting for the auto commit timeout between each commit.
+ *
+ * @param  <E>  type of events in the Nakadi topic (not used internally, just for external type safety)
+ */
 final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>, EventBatch<E>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(CursorAutoCommitter.class);
 
     private final NakadiHttpClient http;
     private final String subscriptionId;
-    private final long delay;
-    private final TimeUnit unit;
+    private final AutoCommit autoCommit;
 
     private volatile String streamId;
 
-    CursorAutoCommitter(final NakadiHttpClient http, final String subscriptionId, //
-            final long delay, final TimeUnit unit) {
+    CursorAutoCommitter(final NakadiHttpClient http, final String subscriptionId, final AutoCommit autoCommit) {
         this.http = requireNonNull(http);
         checkArgument(!subscriptionId.isEmpty(), "subscriptionId may not be empty");
         this.subscriptionId = subscriptionId;
-        checkArgument(delay > 0, "delay must be positive: %s", delay);
-        this.delay = delay;
-        this.unit = requireNonNull(unit);
+        this.autoCommit = requireNonNull(autoCommit);
     }
 
     void setStreamId(final String streamId) {
@@ -83,11 +84,12 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
                                   subscriptionId, error.getMessage(), error);
                               return true;
                           })                                                                                                                 //
-                          .repeatWhen(redo -> redo.flatMap(next -> Observable.timer(delay, unit)))                                           //
-                          .compose(autoCommitter -> Completable.timer(delay, unit).andThen(autoCommitter))
+                          .repeatWhen(redo -> redo.flatMap(next -> autoCommit.apply(Observable::timer)))                                     //
+                          .compose(autoCommitter ->
+                                  autoCommit.apply(Completable::timer).andThen(autoCommitter))
                           .doOnSubscribe(subscription ->
-                                  LOG.info("Automatically committing cursors for subscription [{}] every [{} {}].",                          //
-                                      subscriptionId, delay, unit))                                                                          //
+                                  LOG.info("Automatically committing cursors for subscription [{}]: [{}].",                                  //
+                                      subscriptionId, autoCommit))                                                                           //
                           .doOnUnsubscribe(() ->
                                   LOG.debug("Unsubscribed from auto committing cursors for subscription [{}].",
                                       subscriptionId))                                                                                       //

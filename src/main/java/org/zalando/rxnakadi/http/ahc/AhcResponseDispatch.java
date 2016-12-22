@@ -48,7 +48,7 @@ public final class AhcResponseDispatch {
             }
 
             return Single.error(new UnsupportedOperationException(
-                        String.format("Unsupported %s %s: %s", "status code", statusCode, responseString(response))));
+                        String.format("Unsupported status code %s: %s", statusCode, responseString(response))));
         }
     };
 

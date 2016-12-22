@@ -8,7 +8,7 @@
 
     <groupId>org.zalando</groupId>
     <artifactId>rx-nakadi</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
 
     <name>RxNakadi</name>
     <description>A toolbox for using Nakadi.</description>
@@ -41,7 +41,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-        <async-http-client.version>2.0.19</async-http-client.version>
+        <async-http-client.version>2.0.24</async-http-client.version>
         <slf4j.version>1.7.21</slf4j.version>
     </properties>
 

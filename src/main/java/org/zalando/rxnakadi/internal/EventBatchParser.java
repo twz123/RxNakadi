@@ -1,4 +1,4 @@
-package org.zalando.rxnakadi;
+package org.zalando.rxnakadi.internal;
 
 import java.lang.reflect.Type;
 

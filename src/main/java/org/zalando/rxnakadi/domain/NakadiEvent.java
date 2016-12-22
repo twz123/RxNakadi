@@ -7,6 +7,9 @@ import java.util.function.Supplier;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
+/**
+ * Base class for Nakadi events.
+ */
 public class NakadiEvent {
 
     @NotNull
