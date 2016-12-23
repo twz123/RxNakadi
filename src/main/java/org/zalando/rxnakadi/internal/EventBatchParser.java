@@ -11,7 +11,6 @@ import javax.inject.Inject;
 import org.zalando.rxnakadi.domain.EventBatch;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 
 import com.jayway.jsonpath.DocumentContext;
@@ -38,8 +37,7 @@ final class EventBatchParser {
     public <E> Function<String, EventBatch<E>> forType(final TypeToken<E> eventType) {
 
         final TypeRef<List<E>> typeRef = new TypeRef<List<E>>() {
-            private final Type eventListType =     //
-                new TypeToken<List<E>>() { }.where(new TypeParameter<E>() { }, eventType).getType();
+            private final Type eventListType = TypeTokens.listOf(eventType).getType();
 
             @Override
             public Type getType() {
