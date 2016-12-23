@@ -7,13 +7,14 @@ import static org.asynchttpclient.util.HttpConstants.Methods.POST;
 import static org.zalando.rxnakadi.http.NakadiHttp.EVENTS_DELIMITER_PATTERN;
 import static org.zalando.rxnakadi.http.NakadiHttp.HYSTRIX_GROUP;
 import static org.zalando.rxnakadi.http.NakadiHttp.JSON_TYPE;
-import static org.zalando.rxnakadi.http.NakadiHttp.PUBLISHING_PROBLEM_LIST;
+import static org.zalando.rxnakadi.http.NakadiHttp.X_NAKADI_CURSORS;
 import static org.zalando.rxnakadi.http.NakadiHttp.X_NAKADI_STREAM_ID;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.contentType;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.onClientError;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.responseString;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.statusCode;
 import static org.zalando.rxnakadi.http.ahc.DelimitedJsonStreamTarget.JSON_STREAM_TYPE;
+import static org.zalando.rxnakadi.internal.TypeTokens.listOf;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.dispatch;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.on;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.onAnyOf;
@@ -52,7 +53,10 @@ import org.slf4j.LoggerFactory;
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
+import org.zalando.rxnakadi.domain.Cursor;
 import org.zalando.rxnakadi.domain.NakadiSubscription;
+import org.zalando.rxnakadi.domain.Partition;
+import org.zalando.rxnakadi.domain.PublishingProblem;
 import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
@@ -61,6 +65,7 @@ import org.zalando.rxnakadi.inject.Nakadi;
 import org.zalando.undertaking.oauth2.AccessToken;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 import com.google.gson.Gson;
 
@@ -118,15 +123,36 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     }
 
     @Override
+    public Single<List<Partition>> getPartitions(final EventType eventType) {
+
+        final Request request =
+            new RequestBuilder().setUri(buildUri("event-types/%s/partitions", eventType.toString())) //
+                                .setHeader(ACCEPT, JSON_TYPE.toString())                             //
+                                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())                      //
+                                .build();
+
+        return http(request).<List<Partition>>flatMap(dispatch(statusCode(),                                            //
+                                    on(200).dispatch(contentType(), on(JSON_TYPE).map(parse(listOf(Partition.class)))), //
+                                    onClientError().error(this::hystrixBadRequest)))                                    //
+                            .compose(hystrix("getPartitions"));
+    }
+
+    @Override
     public Observable<String> getEventsForType(final EventType eventType) {
-        return getEvents(buildUri("event-types/%s/events", eventType.toString()), null);
+        return getEvents(buildUri("event-types/%s/events", eventType.toString()), null, null);
+    }
+
+    @Override
+    public Observable<String> getEventsForType(final EventType eventType, final List<Cursor> cursors) {
+        checkArgument(!cursors.isEmpty(), "Cowardly refusing to open empty stream!");
+        return getEvents(buildUri("event-types/%s/events", eventType.toString()), gson.toJson(cursors), null);
     }
 
     @Override
     public Observable<String> getEventsForSubscription(final String subscriptionId, final Consumer<String> streamId) {
         checkArgument(!subscriptionId.isEmpty(), "subscriptionId may not be empty");
         requireNonNull(streamId);
-        return getEvents(buildUri("subscriptions/%s/events", subscriptionId), streamId);
+        return getEvents(buildUri("subscriptions/%s/events", subscriptionId), null, streamId);
     }
 
     @Override
@@ -214,14 +240,19 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
         };
     }
 
-    private Observable<String> getEvents(final Uri uri, final Consumer<String> nakadiStreamId) {
+    private Observable<String> getEvents(final Uri uri, final String cursors, final Consumer<String> nakadiStreamId) {
         return accessToken.flatMapObservable(token -> {
-                final Request request =
+                final RequestBuilder requestBuilder =
                     new RequestBuilder().setUri(uri)               //
                     .setRequestTimeout(-1)                         //
                     .setHeader(AUTHORIZATION, token.getTypeAndValue()) //
-                    .setHeader(ACCEPT, JSON_STREAM_TYPE.toString()) //
-                    .build();
+                    .setHeader(ACCEPT, JSON_STREAM_TYPE.toString());
+
+                if (cursors != null) {
+                    requestBuilder.setHeader(X_NAKADI_CURSORS, cursors);
+                }
+
+                final Request request = requestBuilder.build();
 
                 return Observable.create(subscriber -> {
                         LOG.debug("Request: [{} {}]", request.getMethod(), request.getUri());
@@ -243,10 +274,15 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
         return response -> gson.fromJson(response.getResponseBody(), clazz);
     }
 
+    private <T> Function<Response, T> parse(final TypeToken<T> type) {
+        requireNonNull(type);
+        return response -> gson.fromJson(response.getResponseBody(), type.getType());
+    }
+
     private HystrixBadRequestException publishingProblem(final EventType eventType, final Response response) {
         final NakadiPublishingException publishingException = new NakadiPublishingException(eventType,
                 response.getHeader(NakadiHttp.X_FLOW_ID),
-                gson.fromJson(response.getResponseBody(), PUBLISHING_PROBLEM_LIST));
+                gson.fromJson(response.getResponseBody(), listOf(PublishingProblem.class).getType()));
         return new HystrixBadRequestException(publishingException.getMessage(), publishingException);
     }
 
