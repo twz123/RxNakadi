@@ -73,32 +73,22 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
         };
     }
 
-    <E> Observable<EventBatch<E>> createEventSource(final TopicDescriptor<E> td,
+    private <E> Observable<EventBatch<E>> createEventSource(final TopicDescriptor<E> td,
             final Observable<List<Cursor>> cursorSource) {
 
         final EventType eventType = td.getEventType();
-
         final String streamDescription = td + " (" + Long.toHexString(System.nanoTime()) + ')';
 
         return cursorSource.flatMap(cursors ->
-                                   http.getEventsForType(eventType, cursors)                                           //
-                                   .doOnSubscribe(() ->
-                                           LOG.info("Starting event stream for [{}] with cursors [{}].",               //
-                                               streamDescription, cursors))                                            //
-                                   .doOnTerminate(() ->
-                                           LOG.info("Event stream terminated for [{}] with cursors [{}].",             //
-                                               streamDescription, cursors)))                                           //
-                           .switchIfEmpty(http.getEventsForType(eventType)                                             //
-                               .doOnSubscribe(() ->
-                                       LOG.info("Starting event stream for [{}].", streamDescription))                 //
-                               .doOnTerminate(() ->
-                                       LOG.info("Event stream terminated for [{}].", streamDescription)))              //
-                           .compose(traceEventChunks(streamDescription))                                               //
-                           .map(chunk -> json.fromJson(chunk, eventBatchToken(td.getEventTypeToken())))                //
-                           .compose(observable -> repeatAndRetry(observable, streamDescription));
+                    http.getEventsForType(eventType, cursors)                         //
+                    .compose(logLifecycle(streamDescription + " with " + cursors))    //
+                    .switchIfEmpty(http.getEventsForType(eventType)                   //
+                        .compose(logLifecycle(streamDescription)))                    //
+                    .compose(parseEventChunks(td.getEventTypeToken(), streamDescription)) //
+                    .compose(repeatAndRetry(streamDescription)));
     }
 
-    <E extends NakadiEvent> Observable<List<E>> createEventSource(final TopicDescriptor<E> td,
+    private <E extends NakadiEvent> Observable<List<E>> createEventSource(final TopicDescriptor<E> td,
             final SubscriptionDescriptor sd, final AutoCommit autoCommit) {
 
         final String streamDescription = td + " for " + sd + " (" + Long.toHexString(System.nanoTime()) + ')';
@@ -110,18 +100,17 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
                            new CursorAutoCommitter<>(http, subscriptionId, autoCommit);
 
                        return
-                           http.getEventsForSubscription(subscriptionId, cursorAutoCommitter::setStreamId)       //
-                           .compose(traceEventChunks(streamDescription))                                         //
-                           .map(chunk -> json.fromJson(chunk, eventBatchToken(td.getEventTypeToken())))          //
-                           .lift(cursorAutoCommitter)                                                            //
-                           .doOnSubscribe(() -> LOG.info("Starting event stream on [{}].", streamDescription))   //
-                           .doOnTerminate(() -> LOG.info("Event stream terminated on [{}].", streamDescription)) //
-                           .map(EventBatch::getEvents);
-                   })                                                                                            //
-                   .compose(observable -> repeatAndRetry(observable, streamDescription));
+                           http.getEventsForSubscription(subscriptionId, cursorAutoCommitter::setStreamId)         //
+                           .compose(parseEventChunks(td.getEventTypeToken(), streamDescription))                   //
+                           .lift(cursorAutoCommitter)                                                              //
+                           .compose(logLifecycle(streamDescription));                                              //
+                   })                                                                                              //
+                   .map(EventBatch::getEvents)                                                                     //
+                   .filter(events -> events != null && !events.isEmpty())                                          //
+                   .compose(repeatAndRetry(streamDescription));
     }
 
-    Observable<List<Cursor>> getCursors(final EventType eventType, final StreamOffsets offsets) {
+    private Observable<List<Cursor>> getCursors(final EventType eventType, final StreamOffsets offsets) {
         return http.getPartitions(eventType)                                                               //
                    .flatMapObservable(Observable::from)                                                    //
                    .flatMap(partition ->
@@ -133,8 +122,30 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
                    .toList();
     }
 
-    private static <T> Observable<T> repeatAndRetry(final Observable<T> observable, final String streamDescription) {
-        return observable.repeat().retryWhen(retryer -> scheduleStreamRetries(retryer, streamDescription));
+    private static <T> Observable.Transformer<T, T> logLifecycle(final String streamDescription) {
+        return o -> {
+            return o.doOnSubscribe(() -> LOG.info("Starting event stream on [{}].", streamDescription)) //
+                    .doOnTerminate(() -> LOG.info("Event stream terminated on [{}].", streamDescription));
+        };
+    }
+
+    private <E> Observable.Transformer<String, EventBatch<E>> parseEventChunks(final TypeToken<E> eventTypeToken,
+            final String streamDescription) {
+        @SuppressWarnings("serial")
+        final TypeToken<EventBatch<E>> eventBatchToken =
+            new TypeToken<EventBatch<E>>() { }.where(new TypeParameter<E>() { }, eventTypeToken);
+        return o -> o.compose(traceEventChunks(streamDescription)).map(chunk -> json.fromJson(chunk, eventBatchToken));
+    }
+
+    private static <T> Observable.Transformer<T, T> traceEventChunks(final String streamDescription) {
+        return o ->
+                LOG.isTraceEnabled() ?                                                                          //
+                o.doOnNext(chunk -> LOG.trace("Received JSON chunk on [{}]: [{}]", streamDescription, chunk)) : //
+                o;
+    }
+
+    private static <T> Observable.Transformer<T, T> repeatAndRetry(final String streamDescription) {
+        return o -> o.repeat().retryWhen(retryer -> scheduleStreamRetries(retryer, streamDescription));
     }
 
     private static Observable<?> scheduleStreamRetries(final Observable<? extends Throwable> retryer,
@@ -156,16 +167,5 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
                           LOG.error("Retrying event stream on [{}]: [{}]", streamDescription, error.getMessage(), error);
                           return Observable.just(0L);
                       });
-    }
-
-    @SuppressWarnings("serial")
-    private static <E> TypeToken<EventBatch<E>> eventBatchToken(final TypeToken<E> eventTypeToken) {
-        return new TypeToken<EventBatch<E>>() { }.where(new TypeParameter<E>() { }, eventTypeToken);
-    }
-
-    private static <T> Observable.Transformer<T, T> traceEventChunks(final String streamDescription) {
-        return observable ->
-                LOG.isTraceEnabled() ? observable.doOnNext(chunk ->
-                        LOG.trace("Received JSON chunk on [{}]: [{}]", streamDescription, chunk)) : observable;
     }
 }
