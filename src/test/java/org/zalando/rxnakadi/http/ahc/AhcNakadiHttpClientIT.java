@@ -21,7 +21,7 @@ public class AhcNakadiHttpClientIT extends NakadiHttpClientIT {
     @Before
     public void initializeTest() {
         http = asyncHttpClient();
-        underTest = new AhcNakadiHttpClient(nakadiUri(), http, accessToken(), gson());
+        underTest = new AhcNakadiHttpClient(nakadiUri(), http, accessToken(), json());
     }
 
     @After

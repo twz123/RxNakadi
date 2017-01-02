@@ -35,15 +35,16 @@ import org.zalando.rxnakadi.AccessToken;
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.domain.PublishingProblem;
+import org.zalando.rxnakadi.gson.GsonJsonCoder;
+import org.zalando.rxnakadi.gson.TypeAdapters;
+import org.zalando.rxnakadi.internal.JsonCoder;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
-import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 import rx.Single;
 
@@ -59,8 +60,7 @@ public abstract class NakadiHttpClientIT {
 
     private Single<AccessToken> accessToken;
 
-    private final Gson gson = //
-        new GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
+    private final JsonCoder json = new GsonJsonCoder(TypeAdapters.Provider.of(new Gson()));
 
     protected final URI nakadiUri() {
         return URI.create("http://localhost:" + wireMock.port());
@@ -70,8 +70,8 @@ public abstract class NakadiHttpClientIT {
         return Single.defer(() -> accessToken);
     }
 
-    protected final Gson gson() {
-        return gson;
+    protected final JsonCoder json() {
+        return json;
     }
 
     protected abstract NakadiHttpClient underTest();
@@ -91,8 +91,7 @@ public abstract class NakadiHttpClientIT {
                 .withStatusMessage("Unprocessable Entity")                                   //
                 .withHeader(CONTENT_TYPE, "application/json;charset=UTF-8")                  //
                 .withHeader("X-Flow-Id", "outa-flow")                                        //
-                .withBody(
-                    gson.toJson(
+                .withBody(new Gson().toJson(
                         Arrays.asList(                                                       //
                             problem("1", "", "failed", "validating"),                        //
                             problem("2", "", "aborted", "none"))))));

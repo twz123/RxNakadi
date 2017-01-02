@@ -62,11 +62,10 @@ import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
 import org.zalando.rxnakadi.inject.Nakadi;
+import org.zalando.rxnakadi.internal.JsonCoder;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
-
-import com.google.gson.Gson;
 
 import com.netflix.hystrix.HystrixCommandKey;
 import com.netflix.hystrix.HystrixObservableCommand;
@@ -85,15 +84,15 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     private final Uri nakadiEndpoint;
     private final AsyncHttpClient http;
     private final Single<AccessToken> accessToken;
-    private final Gson gson;
+    private final JsonCoder json;
 
     @Inject
     AhcNakadiHttpClient(@Nakadi final URI nakadiEndpoint, final AsyncHttpClient http,
-            @Nakadi final Single<AccessToken> accessToken, final Gson gson) {
+            @Nakadi final Single<AccessToken> accessToken, final JsonCoder json) {
         this.nakadiEndpoint = Uri.create(nakadiEndpoint.toString());
         this.http = requireNonNull(http);
         this.accessToken = requireNonNull(accessToken);
-        this.gson = requireNonNull(gson);
+        this.json = requireNonNull(json);
     }
 
     @Override
@@ -111,7 +110,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
             new RequestBuilder(POST).setUri(buildUri("subscriptions"))              //
                                     .setHeader(ACCEPT, JSON_TYPE.toString())        //
                                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString()) //
-                                    .setBody(gson.toJson(subscription))             //
+                                    .setBody(json.toJson(subscription))             //
                                     .build();
 
         return http(request).<NakadiSubscription>flatMap(dispatch(statusCode(),              //
@@ -144,7 +143,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     @Override
     public Observable<String> getEventsForType(final EventType eventType, final List<Cursor> cursors) {
         checkArgument(!cursors.isEmpty(), "Cowardly refusing to open empty stream!");
-        return getEvents(buildUri("event-types/%s/events", eventType.toString()), gson.toJson(cursors), null);
+        return getEvents(buildUri("event-types/%s/events", eventType.toString()), json.toJson(cursors), null);
     }
 
     @Override
@@ -162,7 +161,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
                                     .setHeader(X_NAKADI_STREAM_ID, streamId)                      //
                                     .setHeader(ACCEPT, JSON_TYPE.toString())                      //
                                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())               //
-                                    .setBody(gson.toJson(
+                                    .setBody(json.toJson(
                                             ImmutableMap.of("items",
                                                 cursor.map(Collections::singleton)                //
                                                 .orElse(Collections.emptySet()))))                //
@@ -188,7 +187,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
             new RequestBuilder(POST).setUri(buildUri("event-types/%s/events", eventType.toString())) //
                                     .setHeader(ACCEPT, JSON_TYPE.toString())                         //
                                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())                  //
-                                    .setBody(gson.toJson(events))                                    //
+                                    .setBody(json.toJson(events))                                    //
                                     .build();
 
         return http(request).flatMap(dispatch(statusCode(),                                    //
@@ -269,19 +268,18 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     }
 
     private <T> Function<Response, T> parse(final Class<T> clazz) {
-        requireNonNull(clazz);
-        return response -> gson.fromJson(response.getResponseBody(), clazz);
+        return parse(TypeToken.of(clazz));
     }
 
     private <T> Function<Response, T> parse(final TypeToken<T> type) {
         requireNonNull(type);
-        return response -> gson.fromJson(response.getResponseBody(), type.getType());
+        return response -> json.fromJson(response.getResponseBody(), type);
     }
 
     private HystrixBadRequestException publishingProblem(final EventType eventType, final Response response) {
         final NakadiPublishingException publishingException = new NakadiPublishingException(eventType,
                 response.getHeader(NakadiHttp.X_FLOW_ID),
-                gson.fromJson(response.getResponseBody(), listOf(PublishingProblem.class).getType()));
+                json.fromJson(response.getResponseBody(), listOf(PublishingProblem.class)));
         return new HystrixBadRequestException(publishingException.getMessage(), publishingException);
     }
 
