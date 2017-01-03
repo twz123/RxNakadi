@@ -14,8 +14,8 @@ import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 
 /**
- * Internal Gson {@code TypeAdapterFactory} that handles built-in RxNakadi types. All unknown types are delegated to the
- * user-provided type adapters.
+ * Internal Gson {@code TypeAdapterFactory} that handles built-in RxNakadi types. Subtypes of {@link NakadiEvent} are
+ * handled via user provided type adapters, except the metadata part.
  *
  * @see  GsonJsonCoder
  */
