@@ -16,6 +16,7 @@ import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiTopic;
 import org.zalando.rxnakadi.NakadiTopicFactory;
 import org.zalando.rxnakadi.StreamOffsets;
+import org.zalando.rxnakadi.StreamParameters;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
 import org.zalando.rxnakadi.TopicDescriptor;
 import org.zalando.rxnakadi.domain.Cursor;
@@ -52,18 +53,20 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
 
         return new NakadiTopic<E>() {
             @Override
-            public Observable<EventBatch<E>> events() {
-                return createEventSource(descriptor, Observable.empty());
+            public Observable<EventBatch<E>> events(final StreamParameters params) {
+                return createEventSource(descriptor, requireNonNull(params), Observable.empty());
             }
 
             @Override
-            public Observable<EventBatch<E>> events(final StreamOffsets offsets) {
-                return createEventSource(descriptor, getCursors(descriptor.getEventType(), requireNonNull(offsets)));
+            public Observable<EventBatch<E>> events(final StreamOffsets offsets, final StreamParameters params) {
+                return createEventSource(descriptor, requireNonNull(params),
+                        getCursors(descriptor.getEventType(), requireNonNull(offsets)));
             }
 
             @Override
-            public Observable<List<E>> events(final SubscriptionDescriptor sd, final AutoCommit ac) {
-                return createEventSource(descriptor, requireNonNull(sd), requireNonNull(ac));
+            public Observable<List<E>> events(final SubscriptionDescriptor sd, final AutoCommit ac,
+                    final StreamParameters params) {
+                return createEventSource(descriptor, requireNonNull(params), requireNonNull(sd), requireNonNull(ac));
             }
 
             @Override
@@ -73,23 +76,24 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
         };
     }
 
-    private <E> Observable<EventBatch<E>> createEventSource(final TopicDescriptor<E> td,
+    private <E> Observable<EventBatch<E>> createEventSource(final TopicDescriptor<E> td, final StreamParameters params,
             final Observable<List<Cursor>> cursorSource) {
 
         final EventType eventType = td.getEventType();
         final String streamDescription = td + " (" + Long.toHexString(System.nanoTime()) + ')';
 
         return cursorSource.flatMap(cursors ->
-                    http.getEventsForType(eventType, cursors)                         //
+                    http.getEventsForType(eventType, params, cursors)                 //
                     .compose(logLifecycle(streamDescription + " with " + cursors))    //
-                    .switchIfEmpty(http.getEventsForType(eventType)                   //
+                    .switchIfEmpty(
+                        http.getEventsForType(eventType, params)                      //
                         .compose(logLifecycle(streamDescription)))                    //
                     .compose(parseEventChunks(td.getEventTypeToken(), streamDescription)) //
                     .compose(repeatAndRetry(streamDescription)));
     }
 
     private <E extends NakadiEvent> Observable<List<E>> createEventSource(final TopicDescriptor<E> td,
-            final SubscriptionDescriptor sd, final AutoCommit autoCommit) {
+            final StreamParameters params, final SubscriptionDescriptor sd, final AutoCommit autoCommit) {
 
         final String streamDescription = td + " for " + sd + " (" + Long.toHexString(System.nanoTime()) + ')';
 
@@ -100,13 +104,13 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
                            new CursorAutoCommitter<>(http, subscriptionId, autoCommit);
 
                        return
-                           http.getEventsForSubscription(subscriptionId, cursorAutoCommitter::setStreamId)         //
-                           .compose(parseEventChunks(td.getEventTypeToken(), streamDescription))                   //
-                           .lift(cursorAutoCommitter)                                                              //
-                           .compose(logLifecycle(streamDescription));                                              //
-                   })                                                                                              //
-                   .map(EventBatch::getEvents)                                                                     //
-                   .filter(events -> events != null && !events.isEmpty())                                          //
+                           http.getEventsForSubscription(subscriptionId, params, cursorAutoCommitter::setStreamId) //
+                           .compose(parseEventChunks(td.getEventTypeToken(), streamDescription))         //
+                           .lift(cursorAutoCommitter)                                                    //
+                           .compose(logLifecycle(streamDescription));                                    //
+                   })                                                                                    //
+                   .map(EventBatch::getEvents)                                                           //
+                   .filter(events -> events != null && !events.isEmpty())                                //
                    .compose(repeatAndRetry(streamDescription));
     }
 

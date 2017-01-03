@@ -24,16 +24,41 @@ public final class SubscriptionDescriptor {
             // package private
         }
 
+        /**
+         * Required: Specifies the owning application of the descriptor being built.
+         *
+         * @param   owningApplication  name of the owning application
+         *
+         * @return  this builder
+         *
+         * @throws  NullPointerException  if {@code owningApplication} is {@code null}
+         */
         public Builder owningApplication(final String owningApplication) {
             this.owningApplication = requireNonNull(owningApplication);
             return this;
         }
 
+        /**
+         * Required: Specifies the consumer group of the descriptor being built.
+         *
+         * @param   consumerGroup  name of the consumer group
+         *
+         * @return  this builder
+         *
+         * @throws  NullPointerException  if {@code consumerGroup} is {@code null}
+         */
         public Builder consumerGroup(final String consumerGroup) {
             this.consumerGroup = requireNonNull(consumerGroup);
             return this;
         }
 
+        /**
+         * Builds the stream descriptor using the parameters provided to this builder.
+         *
+         * @return  the stream descriptor
+         *
+         * @throws  IllegalStateException  if not all of the required parameters were specified
+         */
         public SubscriptionDescriptor build() {
             checkState(owningApplication != null, "No owning application provided.");
             checkState(consumerGroup != null, "No consumer group provided.");
