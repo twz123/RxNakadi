@@ -109,8 +109,16 @@ public class DefaultNakadiTopicFactory implements NakadiTopicFactory {
                            .lift(cursorAutoCommitter)                                                    //
                            .compose(logLifecycle(streamDescription));                                    //
                    })                                                                                    //
-                   .map(EventBatch::getEvents)                                                           //
-                   .filter(events -> events != null && !events.isEmpty())                                //
+                   .filter(batch -> {
+                       final List<E> events = batch.getEvents();
+                       if (events != null && !events.isEmpty()) {
+                           return true;
+                       }
+
+                       LOG.debug("Dropping empty event batch on [{}]: [{}]", streamDescription, batch);
+                       return false;
+                   })                          //
+                   .map(EventBatch::getEvents) //
                    .compose(repeatAndRetry(streamDescription));
     }
 
