@@ -50,6 +50,42 @@ public final class NakadiHttp {
     public static final MediaType JSON_TYPE = MediaType.JSON_UTF_8.withoutParameters();
 
     /**
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1870">Nakadi
+     *       Event Bus API Definition: #/parameters/BatchLimit</a>
+     */
+    public static final String PARAM_BATCH_LIMIT = "batch_limit";
+
+    /**
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1883">Nakadi
+     *       Event Bus API Definition: #/parameters/StreamLimit</a>
+     */
+    public static final String PARAM_STREAM_LIMIT = "stream_limit";
+
+    /**
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1898">Nakadi
+     *       Event Bus API Definition: #/parameters/BatchFlushTimeout</a>
+     */
+    public static final String PARAM_BATCH_FLUSH_TIMEOUT = "batch_flush_timeout";
+
+    /**
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1913">Nakadi
+     *       Event Bus API Definition: #/parameters/StreamTimeout</a>
+     */
+    public static final String PARAM_STREAM_TIMEOUT = "stream_timeout";
+
+    /**
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1937">Nakadi
+     *       Event Bus API Definition: #/parameters/StreamKeepAliveLimit</a>
+     */
+    public static final String PARAM_STREAM_KEEP_ALIVE_LIMIT = "stream_keep_alive_limit";
+
+    /**
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L866">Notion
+     *       of <code>max_uncommitted_events</code> in the Nakadi Event Bus API Definition</a>
+     */
+    public static final String PARAM_MAX_UNCOMMITTED_EVENTS = "max_uncommitted_events";
+
+    /**
      * Used to split the character stream into individual JSON chunks of Nakadi's flavor of the
      * {@literal "application/x-json-stream"} Media Type. According to the <a
      * href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L460">Nakadi API

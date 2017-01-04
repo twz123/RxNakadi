@@ -7,6 +7,12 @@ import static org.asynchttpclient.util.HttpConstants.Methods.POST;
 import static org.zalando.rxnakadi.http.NakadiHttp.EVENTS_DELIMITER_PATTERN;
 import static org.zalando.rxnakadi.http.NakadiHttp.HYSTRIX_GROUP;
 import static org.zalando.rxnakadi.http.NakadiHttp.JSON_TYPE;
+import static org.zalando.rxnakadi.http.NakadiHttp.PARAM_BATCH_FLUSH_TIMEOUT;
+import static org.zalando.rxnakadi.http.NakadiHttp.PARAM_BATCH_LIMIT;
+import static org.zalando.rxnakadi.http.NakadiHttp.PARAM_MAX_UNCOMMITTED_EVENTS;
+import static org.zalando.rxnakadi.http.NakadiHttp.PARAM_STREAM_KEEP_ALIVE_LIMIT;
+import static org.zalando.rxnakadi.http.NakadiHttp.PARAM_STREAM_LIMIT;
+import static org.zalando.rxnakadi.http.NakadiHttp.PARAM_STREAM_TIMEOUT;
 import static org.zalando.rxnakadi.http.NakadiHttp.X_NAKADI_CURSORS;
 import static org.zalando.rxnakadi.http.NakadiHttp.X_NAKADI_STREAM_ID;
 import static org.zalando.rxnakadi.http.ahc.AhcResponseDispatch.contentType;
@@ -31,6 +37,8 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -53,6 +61,7 @@ import org.slf4j.LoggerFactory;
 import org.zalando.rxnakadi.AccessToken;
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
+import org.zalando.rxnakadi.StreamParameters;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
 import org.zalando.rxnakadi.domain.Cursor;
 import org.zalando.rxnakadi.domain.NakadiSubscription;
@@ -136,21 +145,23 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     }
 
     @Override
-    public Observable<String> getEventsForType(final EventType eventType) {
-        return getEvents(buildUri("event-types/%s/events", eventType.toString()), null, null);
+    public Observable<String> getEventsForType(final EventType eventType, final StreamParameters params) {
+        return getEvents(buildUri("event-types/%s/events", eventType.toString()), params, null, null);
     }
 
     @Override
-    public Observable<String> getEventsForType(final EventType eventType, final List<Cursor> cursors) {
+    public Observable<String> getEventsForType(final EventType eventType, final StreamParameters params,
+            final List<Cursor> cursors) {
         checkArgument(!cursors.isEmpty(), "Cowardly refusing to open empty stream!");
-        return getEvents(buildUri("event-types/%s/events", eventType.toString()), json.toJson(cursors), null);
+        return getEvents(buildUri("event-types/%s/events", eventType.toString()), params, json.toJson(cursors), null);
     }
 
     @Override
-    public Observable<String> getEventsForSubscription(final String subscriptionId, final Consumer<String> streamId) {
+    public Observable<String> getEventsForSubscription(final String subscriptionId, final StreamParameters params,
+            final Consumer<String> streamId) {
         checkArgument(!subscriptionId.isEmpty(), "subscriptionId may not be empty");
         requireNonNull(streamId);
-        return getEvents(buildUri("subscriptions/%s/events", subscriptionId), null, streamId);
+        return getEvents(buildUri("subscriptions/%s/events", subscriptionId), params, null, streamId);
     }
 
     @Override
@@ -238,20 +249,40 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
         };
     }
 
-    private Observable<String> getEvents(final Uri uri, final String cursors, final Consumer<String> nakadiStreamId) {
-        return accessToken.flatMapObservable(token -> {
-                final RequestBuilder requestBuilder =
-                    new RequestBuilder().setUri(uri)               //
-                    .setRequestTimeout(-1)                         //
-                    .setHeader(AUTHORIZATION, token.getTypeAndValue()) //
-                    .setHeader(ACCEPT, JSON_STREAM_TYPE.toString());
+    private Observable<String> getEvents(final Uri uri, final StreamParameters params, final String cursors,
+            final Consumer<String> nakadiStreamId) {
 
-                if (cursors != null) {
-                    requestBuilder.setHeader(X_NAKADI_CURSORS, cursors);
+        final Request prototype;
+        {
+            final RequestBuilder builder =
+                new RequestBuilder().setUri(uri)           //
+                                    .setRequestTimeout(-1) //
+                                    .setHeader(ACCEPT, JSON_STREAM_TYPE.toString());
+
+            if (cursors != null) {
+                builder.setHeader(X_NAKADI_CURSORS, cursors);
+            }
+
+            final OptionalInt streamTimeout = params.streamTimeout();
+            streamTimeout.ifPresent(timeout -> {
+                if (timeout > 0) {
+                    builder.setRequestTimeout((int) TimeUnit.SECONDS.toMillis(timeout + 10));
                 }
+            });
 
-                final Request request = requestBuilder.build();
+            addQueryParam(builder, PARAM_BATCH_LIMIT, params.batchLimit());
+            addQueryParam(builder, PARAM_STREAM_LIMIT, params.streamLimit());
+            addQueryParam(builder, PARAM_BATCH_FLUSH_TIMEOUT, params.batchFlushTimeout());
+            addQueryParam(builder, PARAM_STREAM_TIMEOUT, streamTimeout);
+            addQueryParam(builder, PARAM_STREAM_KEEP_ALIVE_LIMIT, params.streamKeepAliveLimit());
+            addQueryParam(builder, PARAM_MAX_UNCOMMITTED_EVENTS, params.maxUncommittedEvents());
 
+            prototype = builder.build();
+        }
+
+        return accessToken.flatMapObservable(token -> {
+                final Request request = //
+                    new RequestBuilder(prototype).setHeader(AUTHORIZATION, token.getTypeAndValue()).build();
                 return Observable.create(subscriber -> {
                         LOG.debug("Request: [{} {}]", request.getMethod(), request.getUri());
 
@@ -260,6 +291,10 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
                         subscriber.add(Subscriptions.from(http.executeRequest(request, handler)));
                     });
             });
+    }
+
+    private static void addQueryParam(final RequestBuilder builder, final String name, final OptionalInt value) {
+        value.ifPresent(present -> builder.addQueryParam(name, Integer.toString(present)));
     }
 
     private Uri buildUri(final String template, final String... pathParams) {

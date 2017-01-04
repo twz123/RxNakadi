@@ -7,22 +7,21 @@ import com.google.common.base.MoreObjects;
 /**
  * @param  <E>  Nakadi event type contained in this batch
  */
-public class EventBatch<E> {
+public final class EventBatch<E> {
 
-    private final Object cursor;
-    private final List<E> events;
-
-    public EventBatch(final Object cursor, final List<E> events) {
-        this.cursor = cursor;
-        this.events = events;
-    }
+    private Object cursor;
+    private List<E> events;
+    private Object info;
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(this)  //
-                          .add("cursor", cursor) //
-                          .add("events", events) //
-                          .toString();
+        return
+            MoreObjects.toStringHelper(this)  //
+                       .omitNullValues()      //
+                       .add("cursor", cursor) //
+                       .add("events", events) //
+                       .add("info", info)     //
+                       .toString();
     }
 
     public Object getCursor() {
