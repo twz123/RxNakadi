@@ -3,8 +3,8 @@ package org.zalando.rxnakadi.domain;
 import com.google.common.base.MoreObjects;
 
 /**
- * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1348">Nakadi
- *       Event Bus API Definition: #/definitions/Cursor</a>
+ * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1366">Nakadi Event
+ *       Bus API Definition: #/definitions/Cursor</a>
  */
 public class Cursor {
 

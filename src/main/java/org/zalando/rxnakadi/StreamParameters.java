@@ -4,6 +4,10 @@ import java.util.OptionalInt;
 
 /**
  * Parameters to be used when opening Nakadi streams.
+ *
+ * @see  NakadiTopic#events(StreamParameters)
+ * @see  NakadiTopic#events(StreamOffsets, StreamParameters)
+ * @see  NakadiTopic#events(SubscriptionDescriptor, AutoCommit, StreamParameters)
  */
 public interface StreamParameters {
 
@@ -19,7 +23,7 @@ public interface StreamParameters {
      * {@link OptionalInt#isPresent() unspecified}, will buffer events indefinitely and flush on reaching of
      * {@link #batchFlushTimeout() batch flush timeout}.
      *
-     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1869">Nakadi
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1880">Nakadi
      *       Event Bus API Definition: #/parameters/BatchLimit</a>
      */
     default OptionalInt batchLimit() {
@@ -31,7 +35,7 @@ public interface StreamParameters {
      * {@link OptionalInt#isPresent() unspecified}, will stream batches indefinitely. Stream initialization will fail if
      * the stream limit is lower than the {@link #batchLimit() batch limit}.
      *
-     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1882">Nakadi
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1893">Nakadi
      *       Event Bus API Definition: #/parameters/StreamLimit</a>
      */
     default OptionalInt streamLimit() {
@@ -44,7 +48,7 @@ public interface StreamParameters {
      * immediately flushed to the client and batch flush timer is reset. If {@code 0} or
      * {@link OptionalInt#isPresent() unspecified}, will assume 30 seconds.
      *
-     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1897">Nakadi
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1908">Nakadi
      *       Event Bus API Definition: #/parameters/BatchFlushTimeout</a>
      */
     default OptionalInt batchFlushTimeout() {
@@ -58,7 +62,7 @@ public interface StreamParameters {
      * initialization will fail if this stream timeout is lower than the
      * {@link #batchFlushTimeout() batch flush timeout}.
      *
-     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1912">Nakadi
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1923">Nakadi
      *       Event Bus API Definition: #/parameters/StreamTimeout</a>
      */
     default OptionalInt streamTimeout() {
@@ -69,7 +73,7 @@ public interface StreamParameters {
      * Maximum number of empty keep alive batches to get in a row before closing the connection. If {@code 0} or
      * {@link OptionalInt#isPresent() unspecified}, will send keep alive messages indefinitely.
      *
-     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1936">Nakadi
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1947">Nakadi
      *       Event Bus API Definition: #/parameters/StreamKeepAliveLimit</a>
      */
     default OptionalInt streamKeepAliveLimit() {
@@ -81,8 +85,8 @@ public interface StreamParameters {
      * the stream. When in paused state and commit comes - the stream will resume. Minimal value is {@code 1}. Defaults
      * to {@code 10} if not specified.
      *
-     * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L866">Notion
-     *       of <code>max_uncommitted_events</code> in the Nakadi Event Bus API Definition</a>
+     * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L884">Notion of
+     *       <code>max_uncommitted_events</code> in the Nakadi Event Bus API Definition</a>
      */
     default OptionalInt maxUncommittedEvents() {
         return OptionalInt.empty();
