@@ -66,7 +66,7 @@ import org.zalando.rxnakadi.SubscriptionDescriptor;
 import org.zalando.rxnakadi.domain.Cursor;
 import org.zalando.rxnakadi.domain.NakadiSubscription;
 import org.zalando.rxnakadi.domain.Partition;
-import org.zalando.rxnakadi.domain.PublishingProblem;
+import org.zalando.rxnakadi.domain.BatchItemResponse;
 import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
@@ -203,7 +203,8 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
 
         return http(request).flatMap(dispatch(statusCode(),                                    //
                                     on(200).dispatch(contentType(), on(JSON_TYPE).pass()),     //
-                                    on(422).dispatch(contentType(), on(JSON_TYPE).error(response ->
+                                    onAnyOf(207, 422).dispatch(contentType(),                  //
+                                        on(JSON_TYPE).error(response ->
                                                 publishingProblem(eventType, response))),      //
                                     onClientError().error(this::hystrixBadRequest)))           //
                             .compose(hystrix("publishEvents"))                                 //
@@ -314,7 +315,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     private HystrixBadRequestException publishingProblem(final EventType eventType, final Response response) {
         final NakadiPublishingException publishingException = new NakadiPublishingException(eventType,
                 response.getHeader(NakadiHttp.X_FLOW_ID),
-                json.fromJson(response.getResponseBody(), listOf(PublishingProblem.class)));
+                json.fromJson(response.getResponseBody(), listOf(BatchItemResponse.class)));
         return new HystrixBadRequestException(publishingException.getMessage(), publishingException);
     }
 
