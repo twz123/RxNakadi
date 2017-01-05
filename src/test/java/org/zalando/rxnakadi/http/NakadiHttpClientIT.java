@@ -34,7 +34,7 @@ import org.junit.Test;
 import org.zalando.rxnakadi.AccessToken;
 import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
-import org.zalando.rxnakadi.domain.PublishingProblem;
+import org.zalando.rxnakadi.domain.BatchItemResponse;
 import org.zalando.rxnakadi.gson.GsonJsonCoder;
 import org.zalando.rxnakadi.gson.TypeAdapters;
 import org.zalando.rxnakadi.internal.JsonCoder;
@@ -110,8 +110,8 @@ public abstract class NakadiHttpClientIT {
         assertThat(x.getFlowId(), is("outa-flow"));
         assertThat(x.getProblems(),
             contains(                                            //
-                problemMatcher("1", "", "failed", "validating"), //
-                problemMatcher("2", "", "aborted", "none"))      //
+                problemMatcher("", "failed", "validating", "1"), //
+                problemMatcher("", "aborted", "none", "2"))      //
             );
     }
 
@@ -125,15 +125,15 @@ public abstract class NakadiHttpClientIT {
             );
     }
 
-    private static Matcher<PublishingProblem> problemMatcher(final String detail, final String eid,
-            final String publishingStatus, final String step) {
+    private static Matcher<BatchItemResponse> problemMatcher(final String eid, final String publishingStatus,
+            final String step, final String detail) {
 
         return allOf(                                                  //
-                instanceOf(PublishingProblem.class),                   //
-                hasProperty("detail", is(detail)),                     //
+                instanceOf(BatchItemResponse.class),                   //
                 hasProperty("eid", is(eid)),                           //
                 hasProperty("publishingStatus", is(publishingStatus)), //
-                hasProperty("step", is(step))                          //
+                hasProperty("step", is(step)),                         //
+                hasProperty("detail", is(detail))                      //
                 );
     }
 }

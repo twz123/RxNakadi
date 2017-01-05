@@ -15,8 +15,8 @@ import rx.Observable;
 public interface NakadiTopic<E> {
 
     /**
-     * Consume events from all partitions of this topic, starting at the end. No special {@link StreamParameters} will
-     * be used when opening event streams.
+     * Consume events from all partitions of this topic, starting at the end of each partition. No special
+     * {@link StreamParameters} will be used when opening event streams.
      *
      * @return  an {@code Observable} that emits events from this topic, opening a new stream for each subscription
      */
@@ -25,7 +25,7 @@ public interface NakadiTopic<E> {
     }
 
     /**
-     * Consume events from all partitions of this topic, starting at the end.
+     * Consume events from all partitions of this topic, starting at the end of each partition.
      *
      * @param   params  stream parameters to use when opening event streams
      *
@@ -36,7 +36,7 @@ public interface NakadiTopic<E> {
     Observable<EventBatch<E>> events(StreamParameters params);
 
     /**
-     * Consume events from this topic, starting at offsets indicated by {@code offsets}. No special
+     * Consume events from this topic, starting at partition offsets indicated by {@code offsets}. No special
      * {@link StreamParameters} will be used when opening event streams.
      *
      * @param   offsets  offsets at which the streaming for a given partition should start
@@ -50,7 +50,7 @@ public interface NakadiTopic<E> {
     }
 
     /**
-     * Consume events from this topic, starting at offsets indicated by {@code offsets}.
+     * Consume events from this topic, starting at partition offsets indicated by {@code offsets}.
      *
      * @param   offsets  offsets at which the streaming for a given partition should start
      * @param   params   stream parameters to use when opening event streams
@@ -64,6 +64,9 @@ public interface NakadiTopic<E> {
     /**
      * Consume events from this topic using the subscription as described by {@code sd} in {@literal "auto commit"}
      * mode. No special {@link SubscriptionStreamParameters} will be used when opening event streams.
+     *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>managed</em>; commits happen
+     * automatically as defined by the {@code ac} parameter.</p>
      *
      * @param   sd  describes the Nakadi Subscription to be used
      * @param   ac  describes how Nakadi Cursors will be automatically committed
@@ -79,6 +82,9 @@ public interface NakadiTopic<E> {
     /**
      * Consume events from this topic using the subscription as described by {@code sd} in {@literal "auto commit"}
      * mode.
+     *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>managed</em>; commits happen
+     * automatically as defined by the {@code ac} parameter.</p>
      *
      * @param   sd      describes the Nakadi Subscription to be used
      * @param   ac      describes how Nakadi Cursors will be automatically committed
