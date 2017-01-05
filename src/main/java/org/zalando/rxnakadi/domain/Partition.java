@@ -6,8 +6,8 @@ import com.google.common.base.MoreObjects;
  * Partition information. Can be helpful when trying to start a stream using an unmanaged API. This information is not
  * related to the state of the consumer clients.
  *
- * @see  <a href="https://github.com/zalando/nakadi/blob/R2016_12_08_RC1/api/nakadi-event-bus-api.yaml#L1312">Nakadi
- *       Event Bus API Definition: #/definitions/Partition</a>
+ * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1330">Nakadi Event
+ *       Bus API Definition: #/definitions/Partition</a>
  */
 public class Partition {
 
