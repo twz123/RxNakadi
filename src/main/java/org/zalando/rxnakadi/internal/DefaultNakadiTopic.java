@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.AutoCommit;
-import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiTopic;
 import org.zalando.rxnakadi.StreamOffsets;
 import org.zalando.rxnakadi.StreamParameters;
@@ -18,6 +17,8 @@ import org.zalando.rxnakadi.SubscriptionDescriptor;
 import org.zalando.rxnakadi.TopicDescriptor;
 import org.zalando.rxnakadi.domain.Cursor;
 import org.zalando.rxnakadi.domain.EventBatch;
+import org.zalando.rxnakadi.domain.EventType;
+import org.zalando.rxnakadi.domain.ImmutableCursor;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 
 import com.google.common.collect.FluentIterable;
@@ -113,14 +114,19 @@ final class DefaultNakadiTopic<E> implements NakadiTopic<E> {
     }
 
     private Observable<List<Cursor>> getCursors(final EventType eventType, final StreamOffsets offsets) {
-        return http.getPartitions(eventType)                                                               //
-                   .flatMapObservable(Observable::from)                                                    //
+        return http.getPartitions(eventType)                     //
+                   .flatMapObservable(Observable::from)          //
                    .flatMap(partition ->
-                           offsets.offsetFor(partition)                                                    //
-                           .toObservable()                                                                 //
-                           .filter(Optional::isPresent)                                                    //
-                           .map(Optional::get)                                                             //
-                           .map(offset -> new Cursor().setPartition(partition.getPartition()).setOffset(offset))) //
+                           offsets.offsetFor(partition)          //
+                           .toObservable()                       //
+                           .filter(Optional::isPresent)          //
+                           .map(Optional::get)                   //
+                           .map(offset ->
+                                   (Cursor)
+                                   ImmutableCursor.builder()     //
+                                   .partition(partition.getPartition()) //
+                                   .offset(offset)               //
+                                   .build()))                    //
                    .toList();
     }
 
@@ -131,12 +137,12 @@ final class DefaultNakadiTopic<E> implements NakadiTopic<E> {
         };
     }
 
-    private <E> Observable.Transformer<String, EventBatch<E>> parseEventChunks(final TypeToken<E> eventTypeToken,
+    private Observable.Transformer<String, EventBatch<E>> parseEventChunks(final TypeToken<E> eventTypeToken,
             final String streamDescription) {
         @SuppressWarnings("serial")
-        final TypeToken<EventBatch<E>> eventBatchToken =
+        final TypeToken<EventBatch<E>> batchToken =
             new TypeToken<EventBatch<E>>() { }.where(new TypeParameter<E>() { }, eventTypeToken);
-        return o -> o.compose(traceEventChunks(streamDescription)).map(chunk -> json.fromJson(chunk, eventBatchToken));
+        return o -> o.compose(traceEventChunks(streamDescription)).map(chunk -> json.fromJson(chunk, batchToken));
     }
 
     private static <T> Observable.Transformer<T, T> traceEventChunks(final String streamDescription) {

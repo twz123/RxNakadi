@@ -1,46 +1,29 @@
 package org.zalando.rxnakadi.domain;
 
-import com.google.common.base.MoreObjects;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+import org.immutables.value.Value;
 
 /**
  * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1366">Nakadi Event
  *       Bus API Definition: #/definitions/Cursor</a>
  */
-public class Cursor {
+@Value.Immutable
+public interface Cursor {
 
     /**
      * Id of the partition pointed to by this cursor.
      */
-    private String partition;
+    @NotNull
+    @Size(min = 1)
+    String getPartition();
 
     /**
      * Offset of the event being pointed to.
      */
-    private String offset;
+    @NotNull
+    @Size(min = 1)
+    String getOffset();
 
-    @Override
-    public String toString() {
-        return MoreObjects.toStringHelper(this)        //
-                          .add("partition", partition) //
-                          .add("offset", offset)       //
-                          .toString();
-    }
-
-    public String getPartition() {
-        return partition;
-    }
-
-    public Cursor setPartition(final String partition) {
-        this.partition = partition;
-        return this;
-    }
-
-    public String getOffset() {
-        return offset;
-    }
-
-    public Cursor setOffset(final String offset) {
-        this.offset = offset;
-        return this;
-    }
 }

@@ -1,0 +1,29 @@
+{
+  "cursor": {
+    "partition": "1",
+    "offset": "2"
+  },
+  "events": [
+    {
+      "metadata": {
+        "eid": "d765de34-09c0-4bbb-8b1e-7160a33a0791",
+        "occurred_at": "2016-03-15T22:47:01Z"
+      },
+      "data": "first"
+    },
+    {
+      "metadata": {
+        "eid": "a7671c51-49d1-48e6-bb03-b50dcf14f3d3",
+        "occurred_at": "2016-03-15T22:47:02Z"
+      },
+      "data": "second"
+    },
+    {
+      "metadata": {
+        "eid": "6cd8f6ba-8858-4129-a32f-5fcd7a341bba",
+        "occurred_at": "2016-03-15T22:47:03Z"
+      },
+      "data": "third"
+    }
+  ]
+}

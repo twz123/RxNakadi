@@ -22,6 +22,7 @@ public final class GsonJsonCoder implements JsonCoder {
     public GsonJsonCoder(final TypeAdapters.Provider userAdapters) {
         gson =
             new GsonBuilder().setFieldNamingPolicy(LOWER_CASE_WITH_UNDERSCORES)             //
+                             .registerTypeAdapterFactory(new GuavaTypeAdapterFactory())     //
                              .registerTypeAdapterFactory(new InternalFactory(userAdapters)) //
                              .create();
     }

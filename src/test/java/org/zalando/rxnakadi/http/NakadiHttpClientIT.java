@@ -32,9 +32,9 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import org.zalando.rxnakadi.AccessToken;
-import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.domain.BatchItemResponse;
+import org.zalando.rxnakadi.domain.EventType;
 import org.zalando.rxnakadi.gson.GsonJsonCoder;
 import org.zalando.rxnakadi.gson.TypeAdapters;
 import org.zalando.rxnakadi.internal.JsonCoder;

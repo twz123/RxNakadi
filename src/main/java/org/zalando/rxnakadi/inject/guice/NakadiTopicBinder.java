@@ -21,10 +21,10 @@ import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiTopic;
 import org.zalando.rxnakadi.NakadiTopicFactory;
 import org.zalando.rxnakadi.TopicDescriptor;
+import org.zalando.rxnakadi.domain.EventType;
 import org.zalando.rxnakadi.domain.NakadiEvent;
 import org.zalando.rxnakadi.inject.NakadiEventType;
 

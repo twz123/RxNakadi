@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.AutoCommit;
+import org.zalando.rxnakadi.domain.Cursor;
 import org.zalando.rxnakadi.domain.EventBatch;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 
@@ -56,13 +57,13 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
         return parent;
     }
 
-    private Subscription autoCommit(final Supplier<Object> cursorSupplier) {
+    private Subscription autoCommit(final Supplier<Cursor> cursorSupplier) {
 
         return Completable.defer(() -> {
                               final String streamId = CursorAutoCommitter.this.streamId;
                               checkState(streamId != null, "No stream ID!");
 
-                              final Optional<Object> cursor = Optional.ofNullable(cursorSupplier.get());
+                              final Optional<Cursor> cursor = Optional.ofNullable(cursorSupplier.get());
 
                               return
                                   http.commitCursor(cursor, subscriptionId, streamId)                                                        //
@@ -99,10 +100,10 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
     }
 
     private static final class CursorCapturingSubscriber<E> extends Subscriber<EventBatch<E>>
-        implements Supplier<Object> {
+        implements Supplier<Cursor> {
         private final Subscriber<? super EventBatch<E>> child;
 
-        private volatile Object cursor;
+        private volatile Cursor cursor;
 
         CursorCapturingSubscriber(final Subscriber<? super EventBatch<E>> child) {
             super(child);
@@ -110,7 +111,7 @@ final class CursorAutoCommitter<E> implements Observable.Operator<EventBatch<E>,
         }
 
         @Override
-        public Object get() {
+        public Cursor get() {
             return cursor;
         }
 
