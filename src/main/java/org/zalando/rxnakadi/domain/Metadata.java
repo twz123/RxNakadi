@@ -72,7 +72,7 @@ public interface Metadata {
      *
      * <p>This is enriched upon reception of the event.</p>
      *
-     * <p>f provided when {@link NakadiTopic#publish(java.util.List) publishing} an event, the event will be
+     * <p>If provided when {@link NakadiTopic#publish(java.util.List) publishing} an event, the event will be
      * rejected.</p>
      *
      * @return

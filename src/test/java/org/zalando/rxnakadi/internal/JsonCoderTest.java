@@ -113,7 +113,7 @@ public abstract class JsonCoderTest {
         final JsonCoder underTest = underTest();
         final String json = String.format(value.getKey(), roundtripProperty);
         final EventBatch<?> parsed = underTest.fromJson(json, TypeToken.of(EventBatch.class));
-        assertThat(parsed, is(hasProperty(roundtripProperty, value.getValue())));
+        assertThat(parsed, hasProperty(roundtripProperty, value.getValue()));
         assertThat(underTest.toJson(parsed), is(json));
     }
 

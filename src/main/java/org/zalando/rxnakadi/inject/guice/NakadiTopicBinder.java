@@ -248,9 +248,12 @@ public final class NakadiTopicBinder {
                 ? Proxy.getInvocationHandler(target).invoke(method, method, new Object[0]) //
                 : method.invoke(target);
         } catch (final InvocationTargetException e) {
-            throw Throwables.propagate(firstNonNull(e.getCause(), e));
+            final Throwable cause = firstNonNull(e.getCause(), e);
+            Throwables.throwIfUnchecked(cause);
+            throw new RuntimeException(cause);
         } catch (final Throwable e) {
-            throw Throwables.propagate(e);
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }
