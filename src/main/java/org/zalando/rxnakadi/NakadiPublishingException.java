@@ -5,6 +5,7 @@ import static java.util.Objects.requireNonNull;
 import java.util.List;
 
 import org.zalando.rxnakadi.domain.BatchItemResponse;
+import org.zalando.rxnakadi.domain.EventType;
 
 import com.google.common.collect.ImmutableList;
 

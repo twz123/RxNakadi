@@ -1,6 +1,10 @@
 package org.zalando.rxnakadi.domain;
 
-import com.google.common.base.MoreObjects;
+import javax.annotation.Nullable;
+
+import javax.validation.constraints.NotNull;
+
+import org.immutables.value.Value;
 
 /**
  * A status corresponding to one individual event's publishing attempt.
@@ -8,73 +12,56 @@ import com.google.common.base.MoreObjects;
  * @see  <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1789">Nakadi Event
  *       Bus API Definition: #/definitions/BatchItemResponse</a>
  */
-public class BatchItemResponse {
+@Value.Immutable
+public interface BatchItemResponse {
 
     /**
      * @see  #getPublishingStatus()
      */
-    public static final String STATUS_SUBMITTED = "submitted";
+    String STATUS_SUBMITTED = "submitted";
 
     /**
      * @see  #getPublishingStatus()
      */
-    public static final String STATUS_FAILED = "failed";
+    String STATUS_FAILED = "failed";
 
     /**
      * @see  #getPublishingStatus()
      */
-    public static final String STATUS_ABORTED = "aborted";
+    String STATUS_ABORTED = "aborted";
 
     /**
      * @see  #getStep()
      */
-    public static final String STEP_NONE = "none";
+    String STEP_NONE = "none";
 
     /**
      * @see  #getStep()
      */
-    public static final String STEP_VALIDATING = "validating";
+    String STEP_VALIDATING = "validating";
 
     /**
      * @see  #getStep()
      */
-    public static final String STEP_PARTITIONING = "partitioning";
+    String STEP_PARTITIONING = "partitioning";
 
     /**
      * @see  #getStep()
      */
-    public static final String STEP_ENRICHING = "enriching";
+    String STEP_ENRICHING = "enriching";
 
     /**
      * @see  #getStep()
      */
-    public static final String STEP_PUBLISHING = "publishing";
-
-    private String eid;
-    private String publishingStatus;
-    private String step;
-    private String detail;
-
-    @Override
-    public String toString() {
-        return
-            MoreObjects.toStringHelper(this)                      //
-                       .omitNullValues()                          //
-                       .add("eid", eid)                           //
-                       .add("publishingStatus", publishingStatus) //
-                       .add("step", step)                         //
-                       .add("detail", detail)                     //
-                       .toString();
-    }
+    String STEP_PUBLISHING = "publishing";
 
     /**
      * Returns the {@link Metadata#getEid() eid} of the event this item corresponds to.
      *
      * @return  eid of the corresponding event or {@code null} if missing on the incoming event
      */
-    public String getEid() {
-        return eid;
-    }
+    @Nullable
+    String getEid();
 
     /**
      * Returns the indicator of the submission of this item:
@@ -93,9 +80,8 @@ public class BatchItemResponse {
      *
      * @return  the publishing status
      */
-    public String getPublishingStatus() {
-        return publishingStatus;
-    }
+    @NotNull
+    String getPublishingStatus();
 
     /**
      * Returns the indicator of the step in the publishing process this event reached. In events that
@@ -113,9 +99,8 @@ public class BatchItemResponse {
      *
      * @return  the step
      */
-    public String getStep() {
-        return step;
-    }
+    @Nullable
+    String getStep();
 
     /**
      * Human readable information about the failure on this item. Items that are not {@value #STATUS_SUBMITTED} should
@@ -123,7 +108,7 @@ public class BatchItemResponse {
      *
      * @return  the description
      */
-    public String getDetail() {
-        return detail;
-    }
+    @Nullable
+    String getDetail();
+
 }

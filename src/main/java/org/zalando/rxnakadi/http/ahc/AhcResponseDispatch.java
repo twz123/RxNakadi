@@ -69,7 +69,7 @@ public final class AhcResponseDispatch {
 
             final MediaType contentType;
             try {
-                contentType = contentTypeString == null ? null : MediaType.parse(contentTypeString);
+                contentType = MediaType.parse(contentTypeString);
             } catch (final IllegalArgumentException e) {
                 final String msg = String.format("Failed to parse content type %s: %s", //
                         contentTypeString, responseString(response));

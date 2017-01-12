@@ -4,10 +4,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.StreamParameters;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
 import org.zalando.rxnakadi.domain.Cursor;
+import org.zalando.rxnakadi.domain.EventType;
 import org.zalando.rxnakadi.domain.NakadiSubscription;
 import org.zalando.rxnakadi.domain.Partition;
 
@@ -29,7 +29,7 @@ public interface NakadiHttpClient {
     Observable<String> getEventsForSubscription(final String subscriptionId, StreamParameters params,
             final Consumer<String> streamId);
 
-    Completable commitCursor(final Optional<Object> cursor, final String subscriptionId, final String streamId);
+    Completable commitCursor(final Optional<Cursor> cursor, final String subscriptionId, final String streamId);
 
     Completable publishEvents(final EventType eventType, final List<?> events);
 

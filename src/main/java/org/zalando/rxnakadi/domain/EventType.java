@@ -1,4 +1,4 @@
-package org.zalando.rxnakadi;
+package org.zalando.rxnakadi.domain;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

@@ -2,33 +2,45 @@ package org.zalando.rxnakadi.domain;
 
 import java.util.List;
 
-import com.google.common.base.MoreObjects;
+import javax.annotation.Nullable;
+
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
+
+import org.immutables.value.Value;
+
+import org.zalando.rxnakadi.StreamParameters;
 
 /**
- * @param  <E>  Nakadi event type contained in this batch
+ * One chunk of events in a Nakadi event stream. A batch consists of a list of {@link #getEvents() events} plus a
+ * {@link cursor} pointing to the offset of the last event in the batch.
+ *
+ * <p>The number of events in a batch is limited by the {@link StreamParameters parameters} used to initialize a
+ * stream.</p>
+ *
+ * <p>If acting as a keep alive message (i.e. no events have arrived during the
+ * {@link StreamParameters#batchFlushTimeout() batch flush timeout}), the batch won't contain any events. Sequential
+ * batches might present repeated cursors if no new events have arrived.</p>
+ *
+ * @param  <E>  type of events in this batch
+ *
+ * @see    <a href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L1414">Nakadi Event
+ *         Bus API Definition: #/definitions/EventStreamBatch</a>
  */
-public final class EventBatch<E> {
+@Value.Immutable
+public interface EventBatch<E> {
 
-    private Object cursor;
-    private List<E> events;
-    private Object info;
+    @NotNull
+    @Valid
+    Cursor getCursor();
 
-    @Override
-    public String toString() {
-        return
-            MoreObjects.toStringHelper(this)  //
-                       .omitNullValues()      //
-                       .add("cursor", cursor) //
-                       .add("events", events) //
-                       .add("info", info)     //
-                       .toString();
-    }
+    /**
+     * Returns the events contained in this event batch. Potentially {@code null} or {@link List#isEmpty() empty}.
+     */
+    @Nullable
+    List<E> getEvents();
 
-    public Object getCursor() {
-        return cursor;
-    }
+    @Nullable
+    StreamInfo getInfo();
 
-    public List<E> getEvents() {
-        return events;
-    }
 }

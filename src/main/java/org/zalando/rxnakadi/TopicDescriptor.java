@@ -6,6 +6,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.Objects;
 
+import org.zalando.rxnakadi.domain.EventType;
+
 import com.google.common.reflect.TypeToken;
 
 /**

@@ -59,14 +59,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.zalando.rxnakadi.AccessToken;
-import org.zalando.rxnakadi.EventType;
 import org.zalando.rxnakadi.NakadiPublishingException;
 import org.zalando.rxnakadi.StreamParameters;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
+import org.zalando.rxnakadi.domain.BatchItemResponse;
 import org.zalando.rxnakadi.domain.Cursor;
+import org.zalando.rxnakadi.domain.EventType;
+import org.zalando.rxnakadi.domain.ImmutableNakadiSubscription;
 import org.zalando.rxnakadi.domain.NakadiSubscription;
 import org.zalando.rxnakadi.domain.Partition;
-import org.zalando.rxnakadi.domain.BatchItemResponse;
 import org.zalando.rxnakadi.http.NakadiHttp;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.hystrix.HystrixCommands;
@@ -110,10 +111,12 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
         requireNonNull(eventType);
         requireNonNull(sd);
 
-        final NakadiSubscription subscription = new NakadiSubscription( //
-                sd.getOwningApplication(),                              //
-                Collections.singleton(eventType),                       //
-                sd.getConsumerGroup());
+        final NakadiSubscription subscription =
+            ImmutableNakadiSubscription.builder()                                    //
+                                       .owningApplication(sd.getOwningApplication()) //
+                                       .addEventTypes(eventType)                     //
+                                       .consumerGroup(sd.getConsumerGroup())         //
+                                       .build();
 
         final Request request =
             new RequestBuilder(POST).setUri(buildUri("subscriptions"))              //
@@ -165,7 +168,7 @@ public final class AhcNakadiHttpClient implements NakadiHttpClient {
     }
 
     @Override
-    public Completable commitCursor(final Optional<Object> cursor, final String subscriptionId, final String streamId) {
+    public Completable commitCursor(final Optional<Cursor> cursor, final String subscriptionId, final String streamId) {
 
         final Request request =
             new RequestBuilder(POST).setUri(buildUri("subscriptions/%s/cursors", subscriptionId)) //

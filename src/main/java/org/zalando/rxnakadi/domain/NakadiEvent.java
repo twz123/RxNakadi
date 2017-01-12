@@ -8,29 +8,37 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
 /**
- * Base class for Nakadi events.
+ * Base interface for Nakadi events.
  */
-public class NakadiEvent {
+public interface NakadiEvent {
 
-    @NotNull
-    @Valid
-    private Metadata metadata;
-
-    protected static <E extends NakadiEvent> E create(final Supplier<E> ctor) {
+    static <E extends NakadiEvent> E create(final Supplier<E> ctor) {
         return create(ctor, Instant.now());
     }
 
-    protected static <E extends NakadiEvent> E create(final Supplier<E> ctor, final Instant occurredAt) {
+    static <E extends NakadiEvent> E create(final Supplier<E> ctor, final Instant occurredAt) {
         final E event = ctor.get();
-        event.setMetadata(Metadata.create(occurredAt));
+        event.withMetadata(Metadata.create(occurredAt));
         return event;
     }
 
-    public Metadata getMetadata() {
-        return metadata;
-    }
+    @NotNull
+    @Valid
+    Metadata getMetadata();
 
-    public void setMetadata(final Metadata metadata) {
-        this.metadata = metadata;
-    }
+    /**
+     * Returns a Nakadi event that carries the exact same data as this event, but with the provided {@code metadata}.
+     *
+     * <p>The returned event may be a copy of the event, or the same, modified event. This implementation detail is up
+     * to implementors.</p>
+     *
+     * <p>The returned event needs to be {@link Class#isInstance(Object) assignment-compatible} to this event's runtime
+     * type, i.e. {@code event.getClass().isInstance(event.withMetadata(metadata))} is required to be {@code true}.</p>
+     *
+     * @param   metadata  the {@code Metadata} for the returned event
+     *
+     * @return  a {@code NakadiEvent} with the specified metadata.
+     */
+    NakadiEvent withMetadata(Metadata metadata);
+
 }
