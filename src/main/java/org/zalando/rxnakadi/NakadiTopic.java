@@ -18,6 +18,8 @@ public interface NakadiTopic<E> {
      * Consume events from all partitions of this topic, starting at the end of each partition. No special
      * {@link StreamParameters} will be used when opening event streams.
      *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>unmanaged</em>.</p>
+     *
      * @return  an {@code Observable} that emits events from this topic, opening a new stream for each subscription
      */
     default Observable<EventBatch<E>> events() {
@@ -26,6 +28,8 @@ public interface NakadiTopic<E> {
 
     /**
      * Consume events from all partitions of this topic, starting at the end of each partition.
+     *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>unmanaged</em>.</p>
      *
      * @param   params  stream parameters to use when opening event streams
      *
@@ -38,6 +42,8 @@ public interface NakadiTopic<E> {
     /**
      * Consume events from this topic, starting at partition offsets indicated by {@code offsets}. No special
      * {@link StreamParameters} will be used when opening event streams.
+     *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>unmanaged</em>.</p>
      *
      * @param   offsets  offsets at which the streaming for a given partition should start
      *
@@ -52,6 +58,8 @@ public interface NakadiTopic<E> {
     /**
      * Consume events from this topic, starting at partition offsets indicated by {@code offsets}.
      *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>unmanaged</em>.</p>
+     *
      * @param   offsets  offsets at which the streaming for a given partition should start
      * @param   params   stream parameters to use when opening event streams
      *
@@ -62,8 +70,40 @@ public interface NakadiTopic<E> {
     Observable<EventBatch<E>> events(StreamOffsets offsets, StreamParameters params);
 
     /**
+     * Consume events from this topic using the subscription as described by {@code sd}. No special
+     * {@link StreamParameters} will be used when opening event streams.
+     *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>managed</em>: Clients need to
+     * {@link SubscriptionEventBatch#commit() commit} individual batches.</p>
+     *
+     * @param   sd  describes the Nakadi Subscription to be used
+     *
+     * @return  an {@code Observable} that emits events from this topic, opening a new stream for each subscription
+     *
+     * @throws  NullPointerException  if {@code sd} is {@code null}
+     */
+    default Observable<SubscriptionEventBatch<E>> events(final SubscriptionDescriptor sd) {
+        return events(sd, StreamParameters.DEFAULTS);
+    }
+
+    /**
+     * Consume events from this topic using the subscription as described by {@code sd}.
+     *
+     * <p>The event streams opened by the returned {@code Observable} will be <em>managed</em>: Clients need to
+     * {@link SubscriptionEventBatch#commit() commit} individual batches.</p>
+     *
+     * @param   sd      describes the Nakadi Subscription to be used
+     * @param   params  stream parameters to use when opening event streams
+     *
+     * @return  an {@code Observable} that emits events from this topic, opening a new stream for each subscription
+     *
+     * @throws  NullPointerException  if at least one of the parameters is {@code null}
+     */
+    Observable<SubscriptionEventBatch<E>> events(SubscriptionDescriptor sd, StreamParameters params);
+
+    /**
      * Consume events from this topic using the subscription as described by {@code sd} in {@literal "auto commit"}
-     * mode. No special {@link SubscriptionStreamParameters} will be used when opening event streams.
+     * mode. No special {@link StreamParameters} will be used when opening event streams.
      *
      * <p>The event streams opened by the returned {@code Observable} will be <em>managed</em>; commits happen
      * automatically as defined by the {@code ac} parameter.</p>

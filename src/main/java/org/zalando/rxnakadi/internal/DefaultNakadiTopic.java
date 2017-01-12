@@ -14,6 +14,7 @@ import org.zalando.rxnakadi.NakadiTopic;
 import org.zalando.rxnakadi.StreamOffsets;
 import org.zalando.rxnakadi.StreamParameters;
 import org.zalando.rxnakadi.SubscriptionDescriptor;
+import org.zalando.rxnakadi.SubscriptionEventBatch;
 import org.zalando.rxnakadi.TopicDescriptor;
 import org.zalando.rxnakadi.domain.Cursor;
 import org.zalando.rxnakadi.domain.EventBatch;
@@ -47,19 +48,25 @@ final class DefaultNakadiTopic<E> implements NakadiTopic<E> {
 
     @Override
     public Observable<EventBatch<E>> events(final StreamParameters params) {
-        return createEventSource(descriptor, requireNonNull(params), Observable.empty());
+        return unmanaged(descriptor, requireNonNull(params), Observable.empty());
     }
 
     @Override
     public Observable<EventBatch<E>> events(final StreamOffsets offsets, final StreamParameters params) {
-        return createEventSource(descriptor, requireNonNull(params),
+        return unmanaged(descriptor, requireNonNull(params),
                 getCursors(descriptor.getEventType(), requireNonNull(offsets)));
+    }
+
+    @Override
+    public Observable<SubscriptionEventBatch<E>> events( //
+            final SubscriptionDescriptor sd, final StreamParameters params) {
+        return manualCommit(descriptor, requireNonNull(params), requireNonNull(sd));
     }
 
     @Override
     public Observable<List<E>> events(final SubscriptionDescriptor sd, final AutoCommit ac,
             final StreamParameters params) {
-        return createEventSource(descriptor, requireNonNull(params), requireNonNull(sd), requireNonNull(ac));
+        return autoCommit(descriptor, requireNonNull(params), requireNonNull(sd), requireNonNull(ac));
     }
 
     @Override
@@ -67,7 +74,7 @@ final class DefaultNakadiTopic<E> implements NakadiTopic<E> {
         return http.publishEvents(descriptor.getEventType(), events);
     }
 
-    private Observable<EventBatch<E>> createEventSource(final TopicDescriptor<E> td, final StreamParameters params,
+    private Observable<EventBatch<E>> unmanaged(final TopicDescriptor<E> td, final StreamParameters params,
             final Observable<List<Cursor>> cursorSource) {
 
         final EventType eventType = td.getEventType();
@@ -83,7 +90,28 @@ final class DefaultNakadiTopic<E> implements NakadiTopic<E> {
                     .compose(repeatAndRetry(streamDescription)));
     }
 
-    private Observable<List<E>> createEventSource(final TopicDescriptor<E> td, final StreamParameters params,
+    private Observable<SubscriptionEventBatch<E>> manualCommit(final TopicDescriptor<E> td,
+            final StreamParameters params, final SubscriptionDescriptor sd) {
+
+        final String streamDescription = td + " for " + sd + " (" + Long.toHexString(System.nanoTime()) + ')';
+
+        return http.getSubscription(td.getEventType(), sd) //
+                   .flatMapObservable(subscription -> {
+                       final String subscriptionId = subscription.getId();
+
+                       final ManagedBatchOperator<E> managedBatchOperator = //
+                           new ManagedBatchOperator<>(http, subscriptionId);
+
+                       return
+                           http.getEventsForSubscription(subscriptionId, params, managedBatchOperator::setStreamId) //
+                           .compose(parseEventChunks(td.getEventTypeToken(), streamDescription))                    //
+                           .lift(managedBatchOperator)                                                              //
+                           .compose(logLifecycle(streamDescription));                                               //
+                   })                                                                                               //
+                   .compose(repeatAndRetry(streamDescription));
+    }
+
+    private Observable<List<E>> autoCommit(final TopicDescriptor<E> td, final StreamParameters params,
             final SubscriptionDescriptor sd, final AutoCommit autoCommit) {
 
         final String streamDescription = td + " for " + sd + " (" + Long.toHexString(System.nanoTime()) + ')';
