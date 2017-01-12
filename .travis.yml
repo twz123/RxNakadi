@@ -2,11 +2,18 @@ language: java
 jdk:
   - oraclejdk8
 
-sudo: false
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "OiRLY9Gs7f74tIytpTfyfp2xg0MnSNQ6TcYYjgRgwOuEw0rHJRGOb+/W2EvBs7IZHm3t/ugAzAvBXI3jKBrLeFkW5tmnTmp2PxyW7PWgrZ89HXWfnSB0JD45KWSRhcO3xd/m79ozMMfkC58E4YdOIP2glWm38ee02su774haclnewS7gUeokmwmAXLj9D+qsSRkL8o0+FJe3PM4m1QXe8oLRGI8Eb+TZkCOf/1Pw732oapwJMCLuU0ZPacCgWu/myKL3wrlxyD17mB7nTjRTTrh3cBXFFXkevWrNOMaCkIR3sVaEwX8Sr8m40Tx5nDqD9B9O69NoT6/Hi/bRdANgc1nOu81QgZNZAxXkuuI3VSs/pqQqbViVN54zqfHDI0sAWO44VvG+n40WId0R0WkkBqS4RNFjvOmKa5jn9l+K2idfvQGynJImXmgIptWrthWm55Gt6MbiEszKo6AB61B5RVptJC7YypgPF6fzXmbFpvj3Gamro4z028Y9LIMx/GylYjng+zp/yTOAIReEPpyJbEzna/q7DFEwVXYeCV12IjmICK5fWT8Lqvtu+qedh72u8S+nUuW129cV6KV75oFswv5hunqW5AUl2xQz3xJG7jipLpDQErkz58PJXXThggYa43LaOmjon4yLBmQsPm9wB02rWJ3D5HA7vXqL/GA+c1I="
 
 cache:
   directories:
     - $HOME/.m2
+
+before_install:
+  - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
 
 before_script:
   - pip install --user codecov
@@ -23,6 +30,15 @@ addons:
     packages:
       - oracle-java8-installer
 
+  coverity_scan:
+    project:
+      name: twz123/RxNakadi
+      description: Build submitted via Travis CI
+    build_command_prepend: mvn clean
+    build_command: mvn -DskipTests=true compile
+    branch_pattern: coverity_scan
+
 branches:
   only:
   - master
+  - coverity_scan
