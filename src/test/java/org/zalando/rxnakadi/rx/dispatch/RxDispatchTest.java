@@ -1,11 +1,7 @@
 package org.zalando.rxnakadi.rx.dispatch;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasProperty;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
@@ -19,7 +15,6 @@ import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.dispatch;
 import static org.zalando.rxnakadi.rx.dispatch.RxDispatch.on;
 
 import java.util.Iterator;
-import java.util.List;
 
 import org.asynchttpclient.Response;
 
@@ -30,9 +25,7 @@ import org.junit.Test;
 import com.google.common.collect.Iterators;
 import com.google.common.net.MediaType;
 
-import rx.Single;
-
-import rx.observers.TestSubscriber;
+import io.reactivex.Single;
 
 public class RxDispatchTest {
 
@@ -71,22 +64,11 @@ public class RxDispatchTest {
     }
 
     private static void verifyDispatch(final Single<String> testSetup, final String value) {
-        final TestSubscriber<String> subscriber = new TestSubscriber<>();
-        testSetup.subscribe(subscriber);
-        subscriber.assertTerminalEvent();
-        subscriber.assertNoErrors();
-        subscriber.assertValue(value);
+        testSetup.test().assertComplete().assertNoErrors().assertValue(value);
     }
 
     private static void verifyDispatch(final Single<String> testSetup, final Matcher<? super Throwable> errorMatcher) {
-        final TestSubscriber<String> subscriber = new TestSubscriber<>();
-        testSetup.subscribe(subscriber);
-        subscriber.assertTerminalEvent();
-        assertThat(subscriber.getOnNextEvents(), empty());
-
-        final List<Throwable> errors = subscriber.getOnErrorEvents();
-        assertThat(errors, hasSize(1));
-        assertThat(errors.get(0), errorMatcher);
+        testSetup.test().assertTerminated().assertNoValues().assertError(errorMatcher::matches);
     }
 
     private static Response mockResponse(final int statusCode, final String contentType) {

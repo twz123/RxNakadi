@@ -16,19 +16,19 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 
-import rx.Single;
+import io.reactivex.Single;
 
-import rx.functions.Func1;
+import io.reactivex.functions.Function;
 
 public final class RxDispatch {
 
     @SafeVarargs
-    public static <T, A, R> Func1<? super T, ? extends Single<? extends R>> dispatch( //
+    public static <T, A, R> Function<? super T, ? extends Single<? extends R>> dispatch( //
             final Dispatcher<T, A> dispatcher, final Route<T, ? super A, R>... routes) {
         return dispatch(dispatcher, Arrays.asList(routes));
     }
 
-    public static <T, A, R> Func1<? super T, ? extends Single<? extends R>> dispatch( //
+    public static <T, A, R> Function<? super T, ? extends Single<? extends R>> dispatch( //
             final Dispatcher<T, A> dispatcher, final List<Route<T, ? super A, R>> routes) {
         requireNonNull(dispatcher);
         checkArgument(!routes.isEmpty(), "routes may not be empty");

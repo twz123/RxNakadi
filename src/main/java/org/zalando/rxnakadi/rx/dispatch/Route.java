@@ -1,6 +1,6 @@
 package org.zalando.rxnakadi.rx.dispatch;
 
-import rx.Single;
+import io.reactivex.Single;
 
 public interface Route<T, A, R> {
 

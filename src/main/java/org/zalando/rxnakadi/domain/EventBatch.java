@@ -13,7 +13,7 @@ import org.zalando.rxnakadi.StreamParameters;
 
 /**
  * One chunk of events in a Nakadi event stream. A batch consists of a list of {@link #getEvents() events} plus a
- * {@link cursor} pointing to the offset of the last event in the batch.
+ * {@link #getCursor()} cursor} pointing to the offset of the last event in the batch.
  *
  * <p>The number of events in a batch is limited by the {@link StreamParameters parameters} used to initialize a
  * stream.</p>
