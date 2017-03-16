@@ -6,8 +6,6 @@ import org.zalando.rxnakadi.domain.Cursor;
 
 import com.google.common.net.MediaType;
 
-import com.netflix.hystrix.HystrixCommandGroupKey;
-
 /**
  * Various constants used when communicating to Nakadi via HTTP.
  */
@@ -93,11 +91,6 @@ public final class NakadiHttp {
      * href="https://github.com/zalando/nakadi/blob/R2017_01_03/api/nakadi-event-bus-api.yaml#L908">here</a>).
      */
     public static final Pattern EVENTS_DELIMITER_PATTERN = Pattern.compile("\n", Pattern.LITERAL);
-
-    /**
-     * Key of the Hystrix command group for all HTTP requests to Nakadi.
-     */
-    public static final HystrixCommandGroupKey HYSTRIX_GROUP = HystrixCommandGroupKey.Factory.asKey("nakadi");
 
     private NakadiHttp() {
         throw new AssertionError("No instances for you!");

@@ -9,7 +9,7 @@ import java.util.function.Predicate;
 
 import com.google.common.collect.ImmutableList;
 
-import rx.Single;
+import io.reactivex.Single;
 
 public interface Selector<A> extends Predicate<A> {
 

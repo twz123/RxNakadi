@@ -46,9 +46,9 @@ import com.google.common.primitives.Ints;
 
 import com.google.gson.Gson;
 
-import rx.Single;
+import io.reactivex.Single;
 
-import rx.observers.TestSubscriber;
+import io.reactivex.observers.TestObserver;
 
 /**
  * Abstract test that verifies the general contract of {@link NakadiHttpClient}.
@@ -96,23 +96,27 @@ public abstract class NakadiHttpClientIT {
                             problem("1", "", "failed", "validating"),                        //
                             problem("2", "", "aborted", "none"))))));
 
-        final TestSubscriber<Void> subscriber = new TestSubscriber<>();
-        underTest().publishEvents(EventType.of("publish fails"), Ints.asList(1, 2)).subscribe(subscriber);
-        subscriber.awaitTerminalEvent();
-        subscriber.assertNoValues();
-        assertThat(subscriber.getOnErrorEvents(), contains(instanceOf(NakadiPublishingException.class)));
+        final TestObserver<Void> observer = underTest().publishEvents(EventType.of("publish fails"), Ints.asList(1, 2))
+                                                       .test();
 
-        final NakadiPublishingException x = (NakadiPublishingException) subscriber.getOnErrorEvents().get(0);
+        observer.awaitTerminalEvent();
+        observer.assertTerminated().assertNoValues().assertError(throwable -> {
+            assertThat(throwable, instanceOf(NakadiPublishingException.class));
 
-        assertThat(x.getMessage(),
-            is("2 events of type 'publish fails' could not be published to Nakadi. (Flow-ID: outa-flow)"));
-        assertThat(x.getEventType(), hasToString("publish fails"));
-        assertThat(x.getFlowId(), is("outa-flow"));
-        assertThat(x.getProblems(),
-            contains(                                            //
-                problemMatcher("", "failed", "validating", "1"), //
-                problemMatcher("", "aborted", "none", "2"))      //
-            );
+            final NakadiPublishingException x = (NakadiPublishingException) throwable;
+
+            assertThat(x.getMessage(),
+                is("2 events of type 'publish fails' could not be published to Nakadi. (Flow-ID: outa-flow)"));
+            assertThat(x.getEventType(), hasToString("publish fails"));
+            assertThat(x.getFlowId(), is("outa-flow"));
+            assertThat(x.getProblems(),
+                contains(                                                //
+                    problemMatcher("", "failed", "validating", "1"),     //
+                    problemMatcher("", "aborted", "none", "2"))          //
+                );
+
+            return true;
+        });
     }
 
     private static Map<String, String> problem(final String detail, final String eid, final String publishingStatus,

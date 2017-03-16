@@ -3,7 +3,7 @@ package org.zalando.rxnakadi.rx.dispatch;
 import java.util.Arrays;
 import java.util.List;
 
-import rx.Single;
+import io.reactivex.Single;
 
 public abstract class Dispatcher<T, A> {
 

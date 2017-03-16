@@ -12,6 +12,8 @@ import org.junit.Before;
 import org.zalando.rxnakadi.http.NakadiHttpClient;
 import org.zalando.rxnakadi.http.NakadiHttpClientIT;
 
+import io.github.robwin.circuitbreaker.CircuitBreakerRegistry;
+
 public class AhcNakadiHttpClientIT extends NakadiHttpClientIT {
 
     private AsyncHttpClient http;
@@ -21,7 +23,8 @@ public class AhcNakadiHttpClientIT extends NakadiHttpClientIT {
     @Before
     public void initializeTest() {
         http = asyncHttpClient();
-        underTest = new AhcNakadiHttpClient(nakadiUri(), http, accessToken(), json());
+        underTest = new AhcNakadiHttpClient(CircuitBreakerRegistry.ofDefaults(), nakadiUri(), http, accessToken(),
+                json());
     }
 
     @After

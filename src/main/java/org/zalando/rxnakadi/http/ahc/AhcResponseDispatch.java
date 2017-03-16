@@ -14,7 +14,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.Range;
 import com.google.common.net.MediaType;
 
-import rx.Single;
+import io.reactivex.Single;
 
 public final class AhcResponseDispatch {
 
@@ -59,7 +59,7 @@ public final class AhcResponseDispatch {
         }
 
         @Override
-        public <R> rx.Single<? extends R> dispatch(final Response response,
+        public <R> Single<? extends R> dispatch(final Response response,
                 final List<Route<Response, ? super MediaType, R>> routes) {
             final String contentTypeString = response.getContentType();
 
