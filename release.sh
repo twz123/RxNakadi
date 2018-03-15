@@ -29,7 +29,7 @@ print_usage() {
 cat << EOF
 Usage: $( basename "$0" ) [options]
 
-Prepares a release by perfroming the following steps:
+Prepares a release by perfoming the following steps:
 
   - create a new branch for the release commits
   - create a commit and a tag for the new release version
